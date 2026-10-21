@@ -1,0 +1,18 @@
+[package]
+name = "deviceatlas-core"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99.1"
+publish = false
+
+[lib]
+name = "deviceatlas_core"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+jni-sys = "=0.3.0"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = "symbols"

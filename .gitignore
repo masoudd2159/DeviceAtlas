@@ -1,15 +1,23 @@
+# Android / Gradle / IDE local state
+.gradle/
+.kotlin/
+.idea/
 *.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
 local.properties
+**/build/
+captures/
+.externalNativeBuild/
+.cxx/
+.DS_Store
+Thumbs.db
+*.hprof
+hs_err_pid*.log
+
+# Rust output (Cargo.lock is deliberately tracked)
+**/target/
+graphify-out/
+
+# Local signing material
+*.jks
+*.keystore
+keystore.properties

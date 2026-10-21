@@ -4,6 +4,7 @@ plugins {
 
 android {
     namespace = "io.github.masoudd2159.deviceatlas"
+
     compileSdk {
         version = release(37)
     }
@@ -26,9 +27,14 @@ android {
             }
         }
     }
+
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    buildFeatures {
+        viewBinding = true
     }
 }
 

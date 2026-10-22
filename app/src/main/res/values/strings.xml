@@ -225,4 +225,10 @@
     <string name="hw_distance_unit">cm</string>
     <string name="hw_steps_unit">steps</string>
     <string name="hw_heart_unit">beats/min</string>
+    <string name="hw_initial_failed">Could not load hardware information. Try again.</string>
+    <string name="hw_not_loaded">No hardware snapshot yet. Refresh to load information.</string>
+    <string name="hw_sensor_inventory">Sensor inventory</string>
+    <string name="hw_inventory_available">Inventory queried successfully. Sensors reported: %1$s</string>
+    <string name="hw_inventory_unavailable">Inventory unavailable: %1$s</string>
+    <string name="hw_field_count_scope">Counts cover device fields and individual sensor metadata; inventory status is shown separately.</string>
 </resources>

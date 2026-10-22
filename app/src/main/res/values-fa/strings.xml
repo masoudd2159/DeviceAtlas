@@ -225,4 +225,10 @@
     <string name="hw_distance_unit">cm</string>
     <string name="hw_steps_unit">گام</string>
     <string name="hw_heart_unit">ضربان در دقیقه</string>
+    <string name="hw_initial_failed">خواندن اطلاعات دستگاه ناموفق بود. دوباره تلاش کنید.</string>
+    <string name="hw_not_loaded">هنوز اطلاعات دستگاه دریافت نشده است. برای دریافت، تازه‌سازی کنید.</string>
+    <string name="hw_sensor_inventory">فهرست حسگرها</string>
+    <string name="hw_inventory_available">فهرست با موفقیت خوانده شد. تعداد حسگرهای گزارش‌شده: %1$s</string>
+    <string name="hw_inventory_unavailable">فهرست در دسترس نیست: %1$s</string>
+    <string name="hw_field_count_scope">شمارش شامل اطلاعات دستگاه و جزئیات هر حسگر است؛ وضعیت فهرست جداگانه نمایش داده می‌شود.</string>
 </resources>

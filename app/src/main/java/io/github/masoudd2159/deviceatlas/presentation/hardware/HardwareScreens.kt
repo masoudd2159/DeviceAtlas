@@ -12,7 +12,9 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import io.github.masoudd2159.deviceatlas.R
 import io.github.masoudd2159.deviceatlas.foundation.hardware.*
@@ -38,15 +40,25 @@ internal fun number(value: Number): String {
 
 @Composable
 fun HardwareRefresh(state: HardwareUiState, refresh: () -> Unit) {
+    val snapshot = state.snapshot
     Column(Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }) {
         TextButton(onClick = refresh, enabled = !state.refreshing, modifier = Modifier.testTag("hardware_refresh")) {
-            Text(stringResource(R.string.hw_refresh))
+            Text(stringResource(if (snapshot == null && state.failed && !state.refreshing) R.string.retry else R.string.hw_refresh))
         }
-        if (state.refreshing) Text(stringResource(R.string.hw_refreshing))
-        if (state.failed) Text(stringResource(R.string.hw_refresh_failed), color = MaterialTheme.colorScheme.error)
-        val snapshot = state.snapshot
-        if (snapshot == null) Text(stringResource(R.string.hw_loading))
-        else {
+        val message = when {
+            snapshot == null && state.refreshing -> R.string.hw_loading
+            snapshot == null && state.failed -> R.string.hw_initial_failed
+            snapshot == null -> R.string.hw_not_loaded
+            state.refreshing -> R.string.hw_refreshing
+            state.failed -> R.string.hw_refresh_failed
+            else -> null
+        }
+        if (message != null) Text(stringResource(message),
+            color = if (state.failed && !state.refreshing) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.semantics {
+                if (state.refreshing) progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate
+            })
+        if (snapshot != null) {
             val locale = LocalConfiguration.current.locales[0]
             val timestamp = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM, locale).format(Date(snapshot.capturedAtMillis))
             Text(stringResource(R.string.hw_captured, timestamp), style = MaterialTheme.typography.bodySmall)
@@ -147,7 +159,9 @@ fun HardwareSensorsScreen(state: HardwareUiState, refresh: () -> Unit) {
                 if (inventory.value.isEmpty()) item { Text(stringResource(R.string.hw_sensors_empty)) }
                 inventory.value.groupBy { it.type }.toSortedMap().forEach { (type, sensors) ->
                     item(key = "group_$type") { SectionHeader(sensorType(type)) }
-                    items(sensors, key = { "sensor_${it.index}" }) { sensor -> SensorCard(sensor) }
+                    items(sensors, key = { "sensor_${state.sensorInventoryRevision}_${it.index}" }) { sensor ->
+                        SensorCard(sensor, state.sensorInventoryRevision)
+                    }
                 }
             }
         }
@@ -159,8 +173,9 @@ private fun sensorType(type: Int): String = sensorTypeLabel(type)?.let { stringR
     ?: stringResource(R.string.hw_sensor_other, type)
 
 @Composable
-private fun SensorCard(sensor: SensorCapability) {
-    var expanded by rememberSaveable(sensor.type, sensor.index) { mutableStateOf(false) }
+private fun SensorCard(sensor: SensorCapability, inventoryRevision: Long) {
+    // The index identifies only a slot within this inventory revision, never a physical sensor.
+    var expanded by rememberSaveable(inventoryRevision, sensor.type, sensor.index) { mutableStateOf(false) }
     InformationCard {
         val name = sensor.fields[SensorField.NAME] ?: Unavailable(UnavailableReason.NOT_REPORTED)
         DatumRows(stringResource(R.string.hw_sensor_name), name)
@@ -206,9 +221,14 @@ fun HardwareIntegrity(state: HardwareUiState) {
     val missing = all.filterIsInstance<Unavailable>()
     InformationCard(Modifier.testTag("hardware_integrity")) {
         SectionHeader(stringResource(R.string.hw_integrity))
+        InformationRow(stringResource(R.string.hw_sensor_inventory), when (val inventory = snapshot.sensors) {
+            is Available -> stringResource(R.string.hw_inventory_available, number(inventory.value.size))
+            is Unavailable -> stringResource(R.string.hw_inventory_unavailable, stringResource(reasonLabel(inventory.reason)))
+        })
         Text(stringResource(R.string.hw_field_counts, number(all.count { it is Available }), number(missing.size)))
         Text(stringResource(R.string.hw_invalid_count, number(missing.count { it.reason == UnavailableReason.INVALID_RESPONSE })))
         Text(stringResource(R.string.hw_native_count, number(missing.count { it.reason in listOf(UnavailableReason.NATIVE_UNAVAILABLE, UnavailableReason.NATIVE_FAILED) })))
+        Text(stringResource(R.string.hw_field_count_scope), style = MaterialTheme.typography.bodySmall)
         Text(stringResource(R.string.hw_integrity_note))
     }
 }

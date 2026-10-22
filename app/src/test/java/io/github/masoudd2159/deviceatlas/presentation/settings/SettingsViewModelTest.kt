@@ -1,0 +1,121 @@
+package io.github.masoudd2159.deviceatlas.presentation.settings
+
+import androidx.lifecycle.ViewModelStore
+import io.github.masoudd2159.deviceatlas.foundation.AppLanguage
+import io.github.masoudd2159.deviceatlas.foundation.AppPreferences
+import io.github.masoudd2159.deviceatlas.foundation.ThemePreference
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
+import org.junit.Assert.*
+import org.junit.Before
+import org.junit.Test
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class SettingsViewModelTest {
+    private val dispatcher = StandardTestDispatcher()
+    @Before fun setUp() { Dispatchers.setMain(dispatcher) }
+    @After fun tearDown() { Dispatchers.resetMain() }
+
+    @Test fun restoresThemeAndPersistsSelectionBeforePublishing() = runTest(dispatcher) {
+        val preferences = FakePreferences(ThemePreference.DARK)
+        val model = SettingsViewModel(preferences)
+        assertFalse(model.uiState.value.loaded)
+        advanceUntilIdle()
+        assertEquals(ThemePreference.DARK, model.uiState.value.theme)
+        model.selectTheme(ThemePreference.LIGHT)
+        advanceUntilIdle()
+        assertEquals(ThemePreference.LIGHT, preferences.theme)
+        assertEquals(ThemePreference.LIGHT, model.uiState.value.theme)
+        val restored = SettingsViewModel(preferences)
+        advanceUntilIdle()
+        assertEquals(ThemePreference.LIGHT, restored.uiState.value.theme)
+    }
+
+    @Test fun failedWriteKeepsLastThemeAndExposesError() = runTest(dispatcher) {
+        val model = SettingsViewModel(FakePreferences(succeeds = false))
+        advanceUntilIdle()
+        model.selectTheme(ThemePreference.DARK)
+        advanceUntilIdle()
+        assertEquals(ThemePreference.SYSTEM, model.uiState.value.theme)
+        assertTrue(model.uiState.value.persistenceFailed)
+    }
+
+    @Test fun readFailureAllowsRetryAndDoesNotOverwriteStoredTheme() = runTest(dispatcher) {
+        var failing = true
+        val preferences = object : AppPreferences {
+            override suspend fun readTheme(): ThemePreference {
+                if (failing) error("unavailable")
+                return ThemePreference.DARK
+            }
+            override suspend fun writeTheme(theme: ThemePreference) = error("unexpected write")
+        }
+        val model = SettingsViewModel(preferences)
+        advanceUntilIdle()
+        assertTrue(model.uiState.value.persistenceFailed)
+        failing = false
+        model.retryLoad()
+        advanceUntilIdle()
+        assertEquals(ThemePreference.DARK, model.uiState.value.theme)
+        assertFalse(model.uiState.value.persistenceFailed)
+    }
+
+    @Test fun clearingModelCancelsPreferenceLoading() = runTest(dispatcher) {
+        var cancelled = false
+        val model = SettingsViewModel(object : AppPreferences {
+            override suspend fun readTheme(): ThemePreference = try {
+                awaitCancellation()
+            } finally { cancelled = true }
+            override suspend fun writeTheme(theme: ThemePreference) = true
+        })
+        val store = ViewModelStore().apply { put("settings", model) }
+        runCurrent()
+        store.clear()
+        runCurrent()
+        assertTrue(cancelled)
+        assertFalse(model.uiState.value.persistenceFailed)
+    }
+
+    @Test fun cancellationIsNeverConvertedToPreferenceError() = runTest(dispatcher) {
+        val model = SettingsViewModel(object : AppPreferences {
+            override suspend fun readTheme(): ThemePreference = throw CancellationException()
+            override suspend fun writeTheme(theme: ThemePreference) = true
+        })
+        advanceUntilIdle()
+        assertFalse(model.uiState.value.loaded)
+        assertFalse(model.uiState.value.persistenceFailed)
+    }
+
+    @Test fun themeResolutionAndUnknownStoredValuesHavePredictableFallbacks() {
+        assertEquals(ThemePreference.SYSTEM, ThemePreference.fromStorage("corrupt"))
+        assertEquals(ThemePreference.SYSTEM, ThemePreference.fromStorage(null))
+        assertTrue(ThemePreference.SYSTEM.isDark(true))
+        assertFalse(ThemePreference.SYSTEM.isDark(false))
+        assertTrue(ThemePreference.DARK.isDark(false))
+        assertFalse(ThemePreference.LIGHT.isDark(true))
+        ThemePreference.entries.forEach { assertEquals(it, ThemePreference.fromStorage(it.storageKey)) }
+        assertEquals(AppLanguage.PERSIAN, AppLanguage.fromLanguageTag("fa-IR"))
+        assertEquals(AppLanguage.ENGLISH, AppLanguage.fromLanguageTag("en-US"))
+        assertEquals(AppLanguage.SYSTEM, AppLanguage.fromLanguageTag(""))
+        assertEquals(AppLanguage.SYSTEM, AppLanguage.fromLanguageTag("de"))
+    }
+
+    private class FakePreferences(
+        var theme: ThemePreference = ThemePreference.SYSTEM,
+        val succeeds: Boolean = true,
+    ) : AppPreferences {
+        override suspend fun readTheme() = theme
+        override suspend fun writeTheme(theme: ThemePreference): Boolean {
+            if (succeeds) this.theme = theme
+            return succeeds
+        }
+    }
+}

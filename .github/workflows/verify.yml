@@ -61,7 +61,7 @@ jobs:
           test -x "$sdkmanager"
           # Bounded input avoids masking sdkmanager failures or a yes/SIGPIPE exit.
           "$sdkmanager" --licenses <<< "$(printf 'y\n%.0s' {1..100})" > /dev/null
-          "$sdkmanager" --install 'platforms;android-37' 'build-tools;37.0.0' 'ndk;30.0.16248370'
+          "$sdkmanager" --install 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;30.0.16248370'
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/30.0.16248370" >> "$GITHUB_ENV"
       - name: Install pinned Rust and cargo-ndk
         shell: bash

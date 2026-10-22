@@ -82,9 +82,9 @@ function Test-SensitiveValue([string]$Text) {
         $Text -match '\bemulator-\d{4,5}\b|\b[A-Z0-9]{10,}\s+device\b')
 }
 function Test-PrivateAbsolutePath([string]$Text) {
-    # A root starts at a token boundary, never inside a repository component/URL.
-    # Keep real home-directory roots private in prose, quotes, links and diff lines.
-    $Text -match '(?i)(?<![\p{L}\p{N}_])[A-Z]:[\\/]+(?:Users|Programming|Softwares)[\\/]' -or
+    # Unix roots start at a token boundary, not inside repository components/URLs.
+    # Windows private roots stay conservatively matched, including diagnostic text.
+    $Text -match '(?i)[A-Z]:[\\/]+(?:Users|Programming|Softwares)[\\/]' -or
     $Text -match '(?i)(?<![\p{L}\p{N}_./\\-])/(?:home|Users)/[\p{L}\p{N}_.-]+'
 }
 function Test-RepositoryPath([string]$Path) {

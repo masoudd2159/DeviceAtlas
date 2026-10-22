@@ -84,6 +84,7 @@ try {
     $privateExamples = @{
         'windows-project.txt' = ('D:' + '\Programming\private-project\secret.txt');
         'windows-forward.txt' = ('C:' + '/Users/example/private/settings.json');
+        'embedded-windows.txt' = ('diagnostic-prefixC:' + '\Users\example\private\settings.json');
         'unix-home.txt' = ('/' + 'home/example/private/settings.json');
         'unix-users.txt' = ('/' + 'Users/example/private/settings.json');
         'quoted-unix.txt' = ('path="/' + 'home/example/private/settings.json"');

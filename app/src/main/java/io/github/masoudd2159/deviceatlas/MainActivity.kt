@@ -47,7 +47,7 @@ class MainActivity : AppCompatActivity() {
                         settings = settings, language = language,
                         selectLanguage = { AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(it.languageTag)) },
                         selectTheme = viewModel::selectTheme,
-                        retryPreferences = viewModel::retryLoad,
+                        retryPreferences = viewModel::retry,
                     )
                 } else {
                     Surface(color = MaterialTheme.colorScheme.background) { Text(stringResource(R.string.app_starting)) }

@@ -25,38 +25,56 @@ class SettingsViewModel @Inject constructor(private val preferences: AppPreferen
     private val mutableState = MutableStateFlow(SettingsUiState())
     val uiState = mutableState.asStateFlow()
     private val writes = Mutex()
+    // Owned under writes, including reads/retries; never capture a stale failed choice.
+    private var failedTheme: ThemePreference? = null
 
     init { retryLoad() }
 
     fun retryLoad() {
         viewModelScope.launch {
+            writes.withLock { loadTheme() }
+        }
+    }
+
+    fun retry() {
+        viewModelScope.launch {
             writes.withLock {
-                try {
-                    mutableState.value = SettingsUiState(preferences.readTheme(), loaded = true)
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (_: Exception) {
-                    mutableState.value = mutableState.value.copy(loaded = true, persistenceFailed = true)
-                }
+                val theme = failedTheme
+                if (theme != null) persistTheme(theme) else loadTheme()
             }
         }
     }
 
     fun selectTheme(theme: ThemePreference) {
         viewModelScope.launch {
-            writes.withLock {
-                try {
-                    val saved = preferences.writeTheme(theme)
-                    mutableState.value = mutableState.value.copy(
-                        theme = if (saved) theme else mutableState.value.theme,
-                        persistenceFailed = !saved,
-                    )
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (_: Exception) {
-                    mutableState.value = mutableState.value.copy(persistenceFailed = true)
-                }
-            }
+            writes.withLock { persistTheme(theme) }
+        }
+    }
+
+    private suspend fun loadTheme() {
+        try {
+            mutableState.value = SettingsUiState(preferences.readTheme(), loaded = true)
+            failedTheme = null
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            mutableState.value = mutableState.value.copy(loaded = true, persistenceFailed = true)
+        }
+    }
+
+    private suspend fun persistTheme(theme: ThemePreference) {
+        try {
+            val saved = preferences.writeTheme(theme)
+            failedTheme = if (saved) null else theme
+            mutableState.value = mutableState.value.copy(
+                theme = if (saved) theme else mutableState.value.theme,
+                persistenceFailed = !saved,
+            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            failedTheme = theme
+            mutableState.value = mutableState.value.copy(persistenceFailed = true)
         }
     }
 }

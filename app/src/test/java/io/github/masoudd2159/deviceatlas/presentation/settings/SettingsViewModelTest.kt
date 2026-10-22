@@ -8,6 +8,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -61,10 +62,95 @@ class SettingsViewModelTest {
         val model = SettingsViewModel(preferences)
         advanceUntilIdle()
         assertTrue(model.uiState.value.persistenceFailed)
+        assertTrue(model.uiState.value.loaded)
         failing = false
         model.retryLoad()
         advanceUntilIdle()
         assertEquals(ThemePreference.DARK, model.uiState.value.theme)
+        assertFalse(model.uiState.value.persistenceFailed)
+    }
+
+    @Test fun retryAfterFailedWritePersistsTheRequestedThemeInsteadOfReloadingOldValue() = runTest(dispatcher) {
+        var stored = ThemePreference.SYSTEM
+        var writesSucceed = false
+        var writeCount = 0
+        val model = SettingsViewModel(object : AppPreferences {
+            override suspend fun readTheme() = stored
+            override suspend fun writeTheme(theme: ThemePreference): Boolean {
+                writeCount++
+                if (writesSucceed) stored = theme
+                return writesSucceed
+            }
+        })
+        advanceUntilIdle()
+        model.selectTheme(ThemePreference.DARK)
+        advanceUntilIdle()
+        assertEquals(ThemePreference.SYSTEM, model.uiState.value.theme)
+        writesSucceed = true
+        model.retry()
+        advanceUntilIdle()
+        assertEquals(2, writeCount)
+        assertEquals(ThemePreference.DARK, stored)
+        assertEquals(ThemePreference.DARK, model.uiState.value.theme)
+        assertFalse(model.uiState.value.persistenceFailed)
+    }
+
+    @Test fun retryAfterRapidFailuresRetriesLatestChoice() = runTest(dispatcher) {
+        val attempts = mutableListOf<ThemePreference>()
+        val model = SettingsViewModel(object : AppPreferences {
+            override suspend fun readTheme() = ThemePreference.SYSTEM
+            override suspend fun writeTheme(theme: ThemePreference): Boolean {
+                attempts += theme
+                return attempts.size >= 3
+            }
+        })
+        advanceUntilIdle()
+        model.selectTheme(ThemePreference.DARK)
+        model.selectTheme(ThemePreference.LIGHT)
+        model.retry()
+        advanceUntilIdle()
+        assertEquals(listOf(ThemePreference.DARK, ThemePreference.LIGHT, ThemePreference.LIGHT), attempts)
+        assertEquals(ThemePreference.LIGHT, model.uiState.value.theme)
+        assertFalse(model.uiState.value.persistenceFailed)
+    }
+
+    @Test fun rapidSelectionsAndReloadWaitForDurableWriteAndLastSelectionWins() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        val attempts = mutableListOf<ThemePreference>()
+        var stored = ThemePreference.SYSTEM
+        val model = SettingsViewModel(object : AppPreferences {
+            override suspend fun readTheme() = stored
+            override suspend fun writeTheme(theme: ThemePreference): Boolean {
+                attempts += theme
+                if (attempts.size == 1) gate.await()
+                stored = theme
+                return true
+            }
+        })
+        advanceUntilIdle()
+        model.selectTheme(ThemePreference.DARK)
+        runCurrent()
+        model.retryLoad()
+        model.selectTheme(ThemePreference.LIGHT)
+        runCurrent()
+        assertEquals(ThemePreference.SYSTEM, model.uiState.value.theme)
+        assertEquals(listOf(ThemePreference.DARK), attempts)
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(listOf(ThemePreference.DARK, ThemePreference.LIGHT), attempts)
+        assertEquals(ThemePreference.LIGHT, stored)
+        assertEquals(ThemePreference.LIGHT, model.uiState.value.theme)
+    }
+
+    @Test fun cancellationDuringWriteDoesNotPublishSuccessOrAnError() = runTest(dispatcher) {
+        val model = SettingsViewModel(object : AppPreferences {
+            override suspend fun readTheme() = ThemePreference.SYSTEM
+            override suspend fun writeTheme(theme: ThemePreference): Boolean = throw CancellationException()
+        })
+        advanceUntilIdle()
+        model.selectTheme(ThemePreference.DARK)
+        advanceUntilIdle()
+        assertEquals(ThemePreference.SYSTEM, model.uiState.value.theme)
         assertFalse(model.uiState.value.persistenceFailed)
     }
 

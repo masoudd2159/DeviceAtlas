@@ -42,13 +42,12 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
-      # Official major refs: resolve/review immutable SHAs when network access returns.
-      # They are not claimed as SHA-verified by the offline local review.
-      - uses: actions/setup-java@v5
+      # Official v5 refs resolved and their configured inputs checked at these revisions.
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
         with:
           distribution: temurin
           java-version: '25'
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c
         with:
           validate-wrappers: true
           cache-read-only: ${{ github.event_name == 'pull_request' }}
@@ -91,6 +90,11 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
-      - name: Privacy, completeness and Git-preservation regressions
-        shell: ${{ matrix.shell }}
+      - name: Privacy, completeness and Git-preservation regressions (Windows PowerShell)
+        if: matrix.shell == 'powershell'
+        shell: powershell
+        run: ./tools/Test-ExportCodexChanges.ps1
+      - name: Privacy, completeness and Git-preservation regressions (PowerShell 7)
+        if: matrix.shell == 'pwsh'
+        shell: pwsh
         run: ./tools/Test-ExportCodexChanges.ps1

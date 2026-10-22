@@ -1,0 +1,100 @@
+name: Verify foundation
+
+on:
+  push:
+    branches: [master, 'feature/**', 'codex/**']
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: Rust host checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      RUSTUP_TOOLCHAIN: 1.99.1
+    steps:
+      # checkout v4.2.2. No credentials are persisted into the checked-out tree.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install the pinned host toolchain
+        run: rustup toolchain install 1.99.1 --profile minimal --component rustfmt,clippy
+      - name: Format, Clippy and host tests
+        run: |
+          cargo fmt --manifest-path native/Cargo.toml --all -- --check
+          cargo clippy --manifest-path native/Cargo.toml --locked --all-targets -- -D warnings
+          cargo test --manifest-path native/Cargo.toml --locked
+
+  android:
+    name: Android and four-ABI JNI builds
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      # Official v5 refs resolved and their configured inputs checked at these revisions.
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c
+        with:
+          validate-wrappers: true
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+          dependency-graph: disabled
+      - name: Install exact Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ANDROID_HOME:?The hosted Android SDK bootstrap is required}"
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$sdkmanager"
+          # Bounded input avoids masking sdkmanager failures or a yes/SIGPIPE exit.
+          "$sdkmanager" --licenses <<< "$(printf 'y\n%.0s' {1..100})" > /dev/null
+          "$sdkmanager" --install 'platforms;android-37' 'build-tools;37.0.0' 'ndk;30.0.16248370'
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/30.0.16248370" >> "$GITHUB_ENV"
+      - name: Install pinned Rust and cargo-ndk
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.99.1 --profile minimal --component rustfmt,clippy \
+            --target aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+          cargo +1.99.1 install cargo-ndk --version 4.1.2 --locked
+          test "$(cargo ndk --version)" = 'cargo-ndk 4.1.2'
+      - name: JVM, lint, debug, minified release and AAB
+        shell: bash
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:testDebugUnitTest :app:lintDebug :app:lintRelease \
+            :app:assembleDebug :app:assembleRelease :app:bundleRelease --max-workers=2 --console=plain
+
+  export-helper:
+    name: Export helper (${{ matrix.shell }})
+    runs-on: windows-2022
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Privacy, completeness and Git-preservation regressions (Windows PowerShell)
+        if: matrix.shell == 'powershell'
+        shell: powershell
+        run: ./tools/Test-ExportCodexChanges.ps1
+      - name: Privacy, completeness and Git-preservation regressions (PowerShell 7)
+        if: matrix.shell == 'pwsh'
+        shell: pwsh
+        run: ./tools/Test-ExportCodexChanges.ps1

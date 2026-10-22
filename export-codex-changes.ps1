@@ -35,6 +35,7 @@ function Invoke-Git([string[]]$GitArguments, [switch]$AllowFailure) {
     $info.StandardOutputEncoding = $utf8
     $info.StandardErrorEncoding = $utf8
     $info.EnvironmentVariables['GIT_OPTIONAL_LOCKS'] = '0'
+    $info.EnvironmentVariables['GIT_NO_LAZY_FETCH'] = '1'
     $process = New-Object System.Diagnostics.Process
     $process.StartInfo = $info
     try {
@@ -72,15 +73,33 @@ function Test-ExcludedPath([string]$Path) {
     $Path -match '(?i)(^|/)(\.env[^/]*|\.git-credentials|\.netrc|\.npmrc|\.pypirc|local\.properties|keystore\.properties|signing\.properties|gradle\.properties|credentials[^/]*|secrets?[^/]*|google-services\.json|hs_err_pid[^/]*)(/|$)' -or
     $Path -match '(?i)\.(jks|keystore|p12|pfx|pem|key|log|hprof|dmp|so|a|o|apk|aab|jar|zip|png|webp|jpg|jpeg|gif|pdf|exe|dll|bin)$'
 }
-function Test-ReviewableText([string]$Text) {
-    -not ($Text.Contains([string][char]0) -or
-        $Text -match '-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----' -or
+function Test-SensitiveValue([string]$Text) {
+    ($Text -match '-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----' -or
         $Text -match '(?i)(?:api[_-]?key|access[_-]?token|auth[_-]?token|password|storePassword|keyPassword|client[_-]?secret)\s*["'']?\s*[:=]\s*["'']?[^\s"'',;}]+' -or
         $Text -match '(?i)\bAuthorization\s*[:=]\s*["'']?(?:Bearer|Basic)\s+\S+' -or
         $Text -match '(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[A-Z0-9]{16}|sk-[A-Za-z0-9_-]{20,})' -or
-        $Text -match '(?i)(?:[A-Z]:[\\/](?:Users|Programming|Softwares)[\\/]|/Users/|/home/)' -or
         $Text -match '(?i)\b(?:ANDROID_SERIAL|device[_ -]?serial|serialnumber)\s*[:=]\s*\S+' -or
-        $Text -match '\bemulator-\d{4,5}\b|\b[A-Z0-9]{10,}\s+device\b')
+        # PowerShell -match is case-insensitive: ordinary prose is not an adb ID.
+        $Text -cmatch '\bemulator-\d{4,5}\b|\b[A-Z0-9]{10,}\s+device\b' -or
+        $Text -match '\b(?=[A-Za-z0-9]{10,}\b)(?=[A-Za-z0-9]*\d)[A-Za-z0-9]+\s+device\b' -or
+        $Text -match '(?m)^[ \t]*[A-Za-z0-9]{10,}(?:\t+| {2,})device\b')
+}
+function Test-PrivateAbsolutePath([string]$Text) {
+    # Unix roots start at a token boundary, not inside repository components/URLs.
+    # Windows private roots stay conservatively matched, including diagnostic text.
+    $Text -match '(?i)[A-Z]:[\\/]+(?:Users|Programming|Softwares)[\\/]' -or
+    $Text -match '(?i)(?<![\p{L}\p{N}_./\\-])/(?:home|Users)/[\p{L}\p{N}_.-]+'
+}
+function Test-RepositoryPath([string]$Path) {
+    # Git names are repository-relative; filename policy and secret values still apply.
+    -not ([string]::IsNullOrEmpty($Path) -or $Path.Contains([string][char]0) -or
+        [IO.Path]::IsPathRooted($Path) -or $Path -match '^[A-Za-z]:|^[\\/]' -or
+        $Path -match '(^|[\\/])\.\.([\\/]|$)' -or
+        (Test-ExcludedPath $Path) -or (Test-SensitiveValue $Path))
+}
+function Test-ReviewableText([string]$Text) {
+    -not ($Text.Contains([string][char]0) -or (Test-SensitiveValue $Text) -or
+        (Test-PrivateAbsolutePath $Text))
 }
 $changed = (Invoke-Git @('--literal-pathspecs', '-c', 'core.fsmonitor=false', 'diff', '--no-ext-diff', '--no-textconv', '--no-renames', '--name-only', '-z', $baseHash, '--')).Text
 $untracked = (Invoke-Git @('-c', 'core.fsmonitor=false', 'ls-files', '--others', '--exclude-standard', '-z')).Text
@@ -89,7 +108,7 @@ $accepted = New-Object 'System.Collections.Generic.List[object]'
 $skipped = 0
 $total = 0L
 foreach ($relative in $files) {
-    if ((Test-ExcludedPath $relative) -or -not (Test-ReviewableText $relative) -or $relative -match '(^|/)\.\.(/|$)' -or [IO.Path]::IsPathRooted($relative)) { $skipped++; continue }
+    if (-not (Test-RepositoryPath $relative)) { $skipped++; continue }
     $source = [IO.Path]::GetFullPath((Join-Path $root $relative))
     if (-not $source.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe source path.' }
     # Preserve the original policy of excluding the running exporter itself.
@@ -102,10 +121,12 @@ foreach ($relative in $files) {
     $exists = Test-Path -LiteralPath $source -PathType Leaf
     if ((Test-Path -LiteralPath $source) -and -not $exists) { $skipped++; continue }
     $blob = $baseHash + ':' + $relative
-    $baseType = Invoke-Git @('cat-file', '-t', $blob) -AllowFailure
-    if ($baseType.Code -eq 0 -and $baseType.Text.Trim() -ne 'blob') { $skipped++; continue }
+    $baseEntry = Invoke-Git @('--literal-pathspecs', 'ls-tree', '-z', $baseHash, '--', $relative)
+    $hasBase = $baseEntry.Text.Length -gt 0
+    # Regular files only, including historical input. A symlink is also a Git blob.
+    if ($hasBase -and $baseEntry.Text -notmatch '^100(?:644|755) blob ') { $skipped++; continue }
     $oldSize = 0L
-    if ($baseType.Code -eq 0) { $oldSize = [long](Invoke-Git @('cat-file', '-s', $blob)).Text.Trim() }
+    if ($hasBase) { $oldSize = [long](Invoke-Git @('cat-file', '-s', $blob)).Text.Trim() }
     $newSize = 0L
     if ($exists) { $newSize = (Get-Item -LiteralPath $source).Length }
     if ($oldSize -gt $MaxFileBytes -or $newSize -gt $MaxFileBytes -or $total + $oldSize + $newSize -gt $MaxTotalBytes) { $skipped++; continue }
@@ -113,7 +134,7 @@ foreach ($relative in $files) {
         $currentBytes = $null
         $valid = $true
         if ($exists) { $currentBytes = [IO.File]::ReadAllBytes($source); $valid = Test-ReviewableText ($utf8.GetString($currentBytes)) }
-        if ($valid -and $baseType.Code -eq 0) { $valid = Test-ReviewableText (Invoke-Git @('cat-file', 'blob', $blob)).Text }
+        if ($valid -and $hasBase) { $valid = Test-ReviewableText (Invoke-Git @('cat-file', 'blob', $blob)).Text }
     } catch [System.Text.DecoderFallbackException] { $valid = $false }
     if (-not $valid) { $skipped++; continue }
     $total += $oldSize + $newSize
@@ -138,8 +159,14 @@ try {
         if (-not (Test-ReviewableText ($utf8.GetString($partBytes)))) { throw 'Patch failed privacy checks or a file changed during export; inspect and retry.' }
         $stream = [IO.File]::Open($patchPath, [IO.FileMode]::Append)
         try { $stream.Write($partBytes, 0, $partBytes.Length) } finally { $stream.Dispose() }
-        $statusLines.Add((Invoke-Git @('--literal-pathspecs', '-c', 'core.fsmonitor=false', 'status', '--short', '--untracked-files=all', '--', $relative)).Text.TrimEnd())
-        $changeLines.Add((Invoke-Git @('--literal-pathspecs', 'diff', '--no-ext-diff', '--no-textconv', '--no-renames', '--name-status', $baseHash, '--', $relative)).Text.TrimEnd())
+        $status = (Invoke-Git @('--literal-pathspecs', '-c', 'core.fsmonitor=false', 'status', '--short', '--untracked-files=all', '--', $relative)).Text.TrimEnd()
+        $change = (Invoke-Git @('--literal-pathspecs', 'diff', '--no-ext-diff', '--no-textconv', '--no-renames', '--name-status', $baseHash, '--', $relative)).Text.TrimEnd()
+        if ([string]::IsNullOrWhiteSpace($change) -and $entry.Exists) { $change = "??`t$relative" }
+        if (-not (Test-ReviewableText $status) -or -not (Test-ReviewableText $change)) {
+            throw 'Git metadata failed privacy checks; inspect and retry.'
+        }
+        $statusLines.Add($status)
+        $changeLines.Add($change)
         if ($entry.Exists) {
             $target = Join-Path (Join-Path $destination 'files') $relative
             [void][IO.Directory]::CreateDirectory((Split-Path -Parent $target))

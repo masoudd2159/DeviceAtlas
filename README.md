@@ -1,9 +1,11 @@
 # DeviceAtlas
 
 DeviceAtlas is an offline-first Android device-information and monitoring project.
-**Phase 0 implements only its engineering foundation**: a Compose Foundation screen,
-real Hilt injection, lifecycle-aware StateFlow, and a deterministic Rust/JNI mean
-calculation using test inputs `[2.0, 4.0, 6.0]`. No hardware data is read or simulated.
+**Phase 1 implements the application foundation**: an adaptive Material 3 shell,
+typed Navigation 3, English/Persian with runtime locale selection, persistent
+System/Light/Dark themes, and honest structural device/sensor/diagnostics pages.
+The verified Hilt → ViewModel → Rust/JNI mean using test inputs `[2.0, 4.0, 6.0]`
+remains available under Diagnostics. No hardware data is read or simulated.
 
 Application ID and namespace: `io.github.masoudd2159.deviceatlas`.
 Minimum SDK **26**; compile/target SDK **37**; version **1.0 / 1**.
@@ -86,16 +88,21 @@ See the report for the actual runtime-tested ABI/device matrix.
 ## Architecture and UI
 
 There is one Android module, `:app`, and one existing Rust crate, `native/`.
-No feature modules, repository layer, UseCases, navigation, database, or network
-framework is introduced.
+Package boundaries keep platform UI/preferences separate from the Rust-first
+computational capability. No empty feature modules, repository framework, database
+or network framework is introduced. See [architecture](docs/architecture/overview.md)
+and the [Phase 1 verification report](docs/phase-1-report.md).
 
 ```text
-MainActivity + DeviceAtlasApplication     Hilt/Compose entry points
-presentation/home                        Immutable state, ViewModel, Foundation screen
-presentation/theme                       Light/dark tokens, Dynamic Color (API 31+)
+MainActivity + DeviceAtlasApplication     Hilt/AppCompat/Compose, official app locales
+presentation/shell + navigation          Adaptive shell, typed saved per-tab stacks
+presentation/settings                    Application theme state and persistence actions
+presentation/home                        Entry-scoped Rust verification state and UI
+presentation/theme + components          Material 3 tokens, shared UI, previews
 foundation/NativeMath                     Typed math capability and result contract
 data/nativecore                          Explicit loading, validation, JNI gateway
-di                                       Math binding and Default dispatcher
+foundation/AppPreferences + data/preferences  Android-only theme persistence
+di                                       Capability bindings, Default/IO dispatchers
 native/src/lib.rs                        Pure Rust mean and numerical unit tests
 native/src/bridge.rs                      JNI array/status boundary
 ```
@@ -103,8 +110,12 @@ native/src/bridge.rs                      JNI array/status boundary
 `NativeMath` is the capability seam used by Hilt and isolated tests. The ViewModel
 owns UI state and coroutine lifetime; Compose uses `collectAsStateWithLifecycle`.
 Native calls execute on an injected Default dispatcher. Cancellation is propagated.
-The screen has heading/live-status semantics, scroll support, resource strings,
-fallback color schemes, and system-inset handling.
+Screens have heading/live-status/radio semantics, scroll support, complete
+English/Persian resources, fallback color schemes and system-inset handling.
+AppCompat owns locale persistence on API 26–32 and delegates to framework per-app
+language settings on API 33+. Navigation and Settings survive recreation; theme
+and language survive process restart. See [localization](docs/architecture/localization.md),
+[navigation](docs/architecture/navigation.md) and [design system](docs/architecture/design-system.md).
 
 ## JNI contract
 
@@ -162,16 +173,18 @@ hardware values are present.
 Backup is disabled. Legacy and Android 12+ cloud/device-transfer rules exclude
 all supported data domains. Android/OEM migration behavior can differ, so this is
 a conservative platform policy rather than a universal device-transfer guarantee.
-Phase 0 persists no user data.
+Phase 1 stores only non-sensitive appearance and application-locale preferences.
 
 Windows default host Rust tests currently need the missing MSVC linker. Actual
-Android execution passes on ARM64/API 33 and x86_64/API 26: 13 connected tests and
+Android execution passes on ARM64/API 33 and x86_64/API 26: 26 connected tests and
 12 standalone Rust tests on each runtime. Both use 4 KiB pages. A 16 KiB-page
 runtime remains unverified; APK/64-bit ELF alignment passes static checks.
 Upstream Gradle/protobuf tool warnings are documented without suppressions.
 
-See [the final verification report](docs/phase-0-final-verification.md) for current
-results, exact commands, compatibility evidence, and remaining work.
+See [the Phase 1 report](docs/phase-1-report.md) for current results, exact commands
+and remaining test-environment gaps. The
+[Phase 0 final verification report](docs/phase-0-final-verification.md) retains
+historical compatibility evidence.
 [docs/phase-0-report.md](docs/phase-0-report.md) and
 [docs/validation.md](docs/validation.md) retain the historical development record.
 
@@ -187,7 +200,7 @@ Run the helper from anywhere inside this repository with Windows PowerShell 5.1
 or PowerShell 7 and Git installed:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\export-codex-changes.ps1 -Base HEAD~1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\export-codex-changes.ps1 -Base master
 ```
 
 The example invocation assumes the repository root. Omit `-Base` to compare with
@@ -222,4 +235,57 @@ this repository:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Test-ExportCodexChanges.ps1
+pwsh -NoProfile -File .\tools\Test-ExportCodexChanges.ps1
 ```
+
+The review-corrected exporter distinguishes repository-relative paths from private
+absolute paths. Legitimate `presentation/home/` references are retained; current
+and historical secrets, private paths, links, generated/binary files and unsafe
+names remain filtered. Both PowerShell editions pass 246 regression assertions
+on this host. The running exporter still intentionally excludes itself; inspect
+the final accepted-file inventory and ZIP before sharing.
+
+## CI and review quality gates
+
+[The CI workflow](.github/workflows/verify.yml) defines Linux Rust host checks,
+Android JVM/lint/debug/minified-release/AAB checks with all four JNI ABIs, and
+Windows PowerShell 5.1/7 exporter checks. It installs the exact project SDK, Build
+Tools, NDK, Rust and cargo-ndk prerequisites and uses JDK 25. It has read-only
+repository permissions, cancellable concurrency and bounded job timeouts; no
+production signing, deployment or artifact upload is configured.
+
+The original shell-context validation error was corrected and both official setup
+Actions are pinned to verified immutable revisions. Hosted run
+[39835900094](https://github.com/masoudd2159/DeviceAtlas/actions/runs/39835900094)
+then passed Linux Rust checks (12 tests) and both PowerShell exporter jobs (252
+assertions each, including filesystem symlinks). Android stopped during SDK
+installation because `platforms;android-37` could not be found; its tests/builds
+did not run. The official catalog publishes `platforms;android-37.0`, not that exact
+required identifier. The workflow preserves the specified package identifiers and
+all toolchain versions; this bootstrap limitation is accepted for Phase 1 only.
+See the [integration note](docs/phase-1-report.md#phase-1-integration-readiness-and-hosted-sdk-evidence).
+
+Current review evidence: **32 JVM tests, 26 connected tests per runtime, 12 Rust
+tests per runtime, and 246 exporter assertions per PowerShell edition**. The
+Windows MSVC linker gap remains separate from the proposed Linux CI host job.
+These are prior verification results, not newly rerun suites. See
+[final acceptance](docs/phase-1-report.md#final-phase-1-closure-and-phase-2-readiness)
+for the current decision and fresh checks; the earlier review closure preserves
+commands, manual gaps and the killed-process/existing-task restoration result.
+
+**Phase 1 accepted with documented verification limitations. Ready for Phase 2 planning.**
+Phase 2 implementation has not started. Hosted CI and unavailable manual/device
+environments remain explicit follow-up risks rather than universal prerequisites
+for accepting this engineering foundation.
+
+An installed debug app on an explicitly selected disposable emulator can run the
+additional restoration check (adb must be on PATH):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Test-TaskRestoration.ps1 -Serial $env:ANDROID_SERIAL
+```
+
+The check backgrounds DeviceAtlas, attempts ActivityManager termination, and uses
+an app-UID signal if necessary. It requires an absent old PID, a new PID, the same
+task ID and a restored nested About page. It never force-stops, clears app data,
+changes device settings, or runs against a physical-device serial.

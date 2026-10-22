@@ -1,11 +1,20 @@
 # DeviceAtlas
 
-DeviceAtlas is an offline-first Android device-information and monitoring project.
-**Phase 1 implements the application foundation**: an adaptive Material 3 shell,
-typed Navigation 3, English/Persian with runtime locale selection, persistent
-System/Light/Dark themes, and honest structural device/sensor/diagnostics pages.
+DeviceAtlas is an offline-first Android device-information application.
+**Phase 2 implements real, read-only device intelligence**: public Android API
+snapshots for Device/OS, CPU/ABI, RAM, app-data filesystem, battery, default display,
+graphics capabilities and accessible sensor inventory. Rust validates numerical
+observations and derives capacities, ratios and normalized units through bounded JNI.
+The adaptive Material 3 shell, typed Navigation 3, English/Persian runtime locale
+selection and persistent System/Light/Dark themes remain from Phase 1.
 The verified Hilt → ViewModel → Rust/JNI mean using test inputs `[2.0, 4.0, 6.0]`
-remains available under Diagnostics. No hardware data is read or simulated.
+remains available under Diagnostics alongside information availability. Unsupported
+values are explicit; no hardware values are invented, identifiers collected,
+sensor streams sampled, or background monitoring installed. Snapshots stay in memory.
+
+See the [Phase 2 engineering report](docs/phase-2-report.md),
+[field/source compatibility matrix](docs/architecture/hardware-collection.md), and
+[native protocol](docs/architecture/native-hardware-processing.md).
 
 Application ID and namespace: `io.github.masoudd2159.deviceatlas`.
 Minimum SDK **26**; compile/target SDK **37**; version **1.0 / 1**.
@@ -91,7 +100,7 @@ There is one Android module, `:app`, and one existing Rust crate, `native/`.
 Package boundaries keep platform UI/preferences separate from the Rust-first
 computational capability. No empty feature modules, repository framework, database
 or network framework is introduced. See [architecture](docs/architecture/overview.md)
-and the [Phase 1 verification report](docs/phase-1-report.md).
+and the [Phase 2 verification report](docs/phase-2-report.md).
 
 ```text
 MainActivity + DeviceAtlasApplication     Hilt/AppCompat/Compose, official app locales
@@ -100,10 +109,14 @@ presentation/settings                    Application theme state and persistence
 presentation/home                        Entry-scoped Rust verification state and UI
 presentation/theme + components          Material 3 tokens, shared UI, previews
 foundation/NativeMath                     Typed math capability and result contract
+foundation/hardware                      Availability, source/freshness, typed raw/processed observations
+data/hardware                            Public API collectors and serialized snapshot processing
+presentation/hardware                    Shared snapshot ViewModel, lazy information/sensor UI
 data/nativecore                          Explicit loading, validation, JNI gateway
 foundation/AppPreferences + data/preferences  Android-only theme persistence
 di                                       Capability bindings, Default/IO dispatchers
 native/src/lib.rs                        Pure Rust mean and numerical unit tests
+native/src/hardware.rs                   Numeric hardware validation and derived metrics
 native/src/bridge.rs                      JNI array/status boundary
 ```
 
@@ -118,6 +131,11 @@ and language survive process restart. See [localization](docs/architecture/local
 [navigation](docs/architecture/navigation.md) and [design system](docs/architecture/design-system.md).
 
 ## JNI contract
+
+The new versioned hardware method uses fixed primitive buffers; see the full
+[schema, status and safety contract](docs/architecture/native-hardware-processing.md).
+The original mean protocol below remains valid; input now has an explicit maximum
+of 1,048,576 elements (status 3 above that allocation bound).
 
 The gateway validates non-empty, finite input and explicitly loads
 `deviceatlas_core`. Rust validates again, computes a compensated mean with overflow-safe fallbacks,
@@ -167,21 +185,21 @@ backup configuration. Kotlin gateway tests use injected call/load functions and
 
 The app requests no INTERNET, hardware, identifier, analytics, or monitoring
 permissions. AndroidX contributes only its internal signature-protected receiver
-permission. No telemetry SDK, background monitoring, hardware extraction, or fake
-hardware values are present.
+permission. Public hardware snapshots remain in memory. No telemetry SDK,
+background monitoring, privileged inspection or fabricated hardware values are present.
 
 Backup is disabled. Legacy and Android 12+ cloud/device-transfer rules exclude
 all supported data domains. Android/OEM migration behavior can differ, so this is
 a conservative platform policy rather than a universal device-transfer guarantee.
-Phase 1 stores only non-sensitive appearance and application-locale preferences.
+Only non-sensitive appearance and application-locale preferences are persisted.
 
 Windows default host Rust tests currently need the missing MSVC linker. Actual
-Android execution passes on ARM64/API 33 and x86_64/API 26: 26 connected tests and
-12 standalone Rust tests on each runtime. Both use 4 KiB pages. A 16 KiB-page
+Android execution passes on ARM64/API 33 and x86_64/API 26: 36 instrumentation tests and
+19 standalone Rust tests on each runtime. Both use 4 KiB pages. A 16 KiB-page
 runtime remains unverified; APK/64-bit ELF alignment passes static checks.
 Upstream Gradle/protobuf tool warnings are documented without suppressions.
 
-See [the Phase 1 report](docs/phase-1-report.md) for current results, exact commands
+See [the Phase 2 report](docs/phase-2-report.md) for current results, exact commands
 and remaining test-environment gaps. The
 [Phase 0 final verification report](docs/phase-0-final-verification.md) retains
 historical compatibility evidence.
@@ -261,8 +279,10 @@ then passed Linux Rust checks (12 tests) and both PowerShell exporter jobs (252
 assertions each, including filesystem symlinks). Android stopped during SDK
 installation because `platforms;android-37` could not be found; its tests/builds
 did not run. The official catalog publishes `platforms;android-37.0`, not that exact
-required identifier. The workflow preserves the specified package identifiers and
-all toolchain versions; this bootstrap limitation is accepted for Phase 1 only.
+required identifier. Phase 2 changes only that installation argument to the
+verified canonical `platforms;android-37.0`. Gradle compile/target SDK and all pinned
+versions stay unchanged. Updated actionlint passes locally; no new hosted run has
+been triggered because no push is authorized.
 See the [integration note](docs/phase-1-report.md#phase-1-integration-readiness-and-hosted-sdk-evidence).
 
 Current review evidence: **32 JVM tests, 26 connected tests per runtime, 12 Rust
@@ -273,10 +293,9 @@ These are prior verification results, not newly rerun suites. See
 for the current decision and fresh checks; the earlier review closure preserves
 commands, manual gaps and the killed-process/existing-task restoration result.
 
-**Phase 1 accepted with documented verification limitations. Ready for Phase 2 planning.**
-Phase 2 implementation has not started. Hosted CI and unavailable manual/device
-environments remain explicit follow-up risks rather than universal prerequisites
-for accepting this engineering foundation.
+**Phase 1 history is preserved in its report. Phase 2 implementation and current
+verification evidence are in [the Phase 2 report](docs/phase-2-report.md).** Hosted
+CI, a real 16 KiB runtime and remaining manual QA gaps are reported explicitly.
 
 An installed debug app on an explicitly selected disposable emulator can run the
 additional restoration check (adb must be on PATH):

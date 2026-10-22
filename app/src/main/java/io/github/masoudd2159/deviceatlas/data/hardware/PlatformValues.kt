@@ -19,4 +19,3 @@ internal fun batteryProperty(value: Long, sentinel: Long, operation: MetricOpera
 internal inline fun <T> collectSafely(block: () -> HardwareValue<T>): HardwareValue<T> = try { block() }
     catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
     catch (_: RuntimeException) { Unavailable(UnavailableReason.COLLECTION_FAILED) }
-

@@ -1,3 +1,10 @@
 <resources>
     <string name="app_name">DeviceAtlas</string>
+    <string name="foundation_description">Phase 0 engineering foundation. Hardware monitoring is not implemented.</string>
+    <string name="native_loading">Checking Rust core…</string>
+    <string name="native_ready">Rust core ready · test mean: %1$.1f</string>
+    <string name="native_unavailable">Rust core unavailable</string>
+    <string name="native_empty">The mean requires at least one test value.</string>
+    <string name="native_non_finite">Test values must be finite numbers.</string>
+    <string name="native_failure">The native integration test failed.</string>
 </resources>

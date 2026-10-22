@@ -79,7 +79,10 @@ function Test-SensitiveValue([string]$Text) {
         $Text -match '(?i)\bAuthorization\s*[:=]\s*["'']?(?:Bearer|Basic)\s+\S+' -or
         $Text -match '(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[A-Z0-9]{16}|sk-[A-Za-z0-9_-]{20,})' -or
         $Text -match '(?i)\b(?:ANDROID_SERIAL|device[_ -]?serial|serialnumber)\s*[:=]\s*\S+' -or
-        $Text -match '\bemulator-\d{4,5}\b|\b[A-Z0-9]{10,}\s+device\b')
+        # PowerShell -match is case-insensitive: ordinary prose is not an adb ID.
+        $Text -cmatch '\bemulator-\d{4,5}\b|\b[A-Z0-9]{10,}\s+device\b' -or
+        $Text -match '\b(?=[A-Za-z0-9]{10,}\b)(?=[A-Za-z0-9]*\d)[A-Za-z0-9]+\s+device\b' -or
+        $Text -match '(?m)^[ \t]*[A-Za-z0-9]{10,}(?:\t+| {2,})device\b')
 }
 function Test-PrivateAbsolutePath([string]$Text) {
     # Unix roots start at a token boundary, not inside repository components/URLs.

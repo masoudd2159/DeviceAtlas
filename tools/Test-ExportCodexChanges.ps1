@@ -61,7 +61,7 @@ try {
     Invoke-FixtureGit @('mv', '--', 'old name.txt', 'new name.txt')
     Write-Sample 'old-sensitive.txt' 'now harmless'
     Remove-Item -LiteralPath (Join-Path $repo 'removed-secret.txt')
-    foreach ($safePath in $safePaths) { Write-Sample $safePath ("safe relative references:`n" + ($safePaths -join "`n") + "`nRoot-name documentation: " + [char]96 + '/' + 'home/' + [char]96) }
+    foreach ($safePath in $safePaths) { Write-Sample $safePath ("safe relative references:`n" + ($safePaths -join "`n") + "`nRoot-name documentation: " + [char]96 + '/' + 'home/' + [char]96 + "`nHonest structural device pages.") }
     Write-Sample 'untracked-safe.md' ('See ' + 'presentation/home/HomeScreen.kt')
     Write-Sample 'absolute-history.txt' 'now safe; private base must remain excluded'
     Write-Sample 'historical-link.txt' 'regular file replacing historical link'
@@ -85,6 +85,9 @@ try {
         'windows-project.txt' = ('D:' + '\Programming\private-project\secret.txt');
         'windows-forward.txt' = ('C:' + '/Users/example/private/settings.json');
         'embedded-windows.txt' = ('diagnostic-prefixC:' + '\Users\example\private\settings.json');
+        'adb-uppercase.txt' = ('ZX1234567890' + ' device');
+        'adb-lowercase.txt' = ('test123456789' + ' device');
+        'adb-table.txt' = ('abcdefghijklmnop' + "`tdevice");
         'unix-home.txt' = ('/' + 'home/example/private/settings.json');
         'unix-users.txt' = ('/' + 'Users/example/private/settings.json');
         'quoted-unix.txt' = ('path="/' + 'home/example/private/settings.json"');

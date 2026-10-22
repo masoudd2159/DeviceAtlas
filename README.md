@@ -176,7 +176,7 @@ a conservative platform policy rather than a universal device-transfer guarantee
 Phase 1 stores only non-sensitive appearance and application-locale preferences.
 
 Windows default host Rust tests currently need the missing MSVC linker. Actual
-Android execution passes on ARM64/API 33 and x86_64/API 26: 22 connected tests and
+Android execution passes on ARM64/API 33 and x86_64/API 26: 26 connected tests and
 12 standalone Rust tests on each runtime. Both use 4 KiB pages. A 16 KiB-page
 runtime remains unverified; APK/64-bit ELF alignment passes static checks.
 Upstream Gradle/protobuf tool warnings are documented without suppressions.
@@ -235,4 +235,45 @@ this repository:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Test-ExportCodexChanges.ps1
+pwsh -NoProfile -File .\tools\Test-ExportCodexChanges.ps1
 ```
+
+The review-corrected exporter distinguishes repository-relative paths from private
+absolute paths. Legitimate `presentation/home/` references are retained; current
+and historical secrets, private paths, links, generated/binary files and unsafe
+names remain filtered. Both PowerShell editions pass 246 regression assertions
+on this host. The running exporter still intentionally excludes itself; inspect
+the final accepted-file inventory and ZIP before sharing.
+
+## CI and review quality gates
+
+[The CI workflow](.github/workflows/verify.yml) defines Linux Rust host checks,
+Android JVM/lint/debug/minified-release/AAB checks with all four JNI ABIs, and
+Windows PowerShell 5.1/7 exporter checks. It installs the exact project SDK, Build
+Tools, NDK, Rust and cargo-ndk prerequisites and uses JDK 25. It has read-only
+repository permissions, cancellable concurrency and bounded job timeouts; no
+production signing, deployment or artifact upload is configured.
+
+**CI configured locally; GitHub-hosted execution NOT RUN until authorized push.**
+YAML/security structure and Bash syntax were checked locally. Network/DNS was
+unavailable during the review, so live verification of Action refs and replacement
+of the two official v5 major refs with reviewed immutable SHAs remain required
+before merge. Checkout records the v4.2.2 immutable revision.
+
+Current review evidence: **32 JVM tests, 26 connected tests per runtime, 12 Rust
+tests per runtime, and 246 exporter assertions per PowerShell edition**. The
+Windows MSVC linker gap remains separate from the proposed Linux CI host job.
+See [review closure](docs/phase-1-report.md#phase-1-review-closure) for commands,
+remaining manual gaps, and the killed-process/existing-task restoration result.
+
+An installed debug app on an explicitly selected disposable emulator can run the
+additional restoration check (adb must be on PATH):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Test-TaskRestoration.ps1 -Serial $env:ANDROID_SERIAL
+```
+
+The check backgrounds DeviceAtlas, attempts ActivityManager termination, and uses
+an app-UID signal if necessary. It requires an absent old PID, a new PID, the same
+task ID and a restored nested About page. It never force-stops, clears app data,
+changes device settings, or runs against a physical-device serial.

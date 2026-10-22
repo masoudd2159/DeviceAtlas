@@ -37,3 +37,25 @@ To add a feature: introduce a typed key and title/icon resources, add content to
 the centralized entry provider, establish an injected capability only if needed,
 and extend destination/Back/restoration tests. Never add fabricated metrics to
 structural screens.
+
+## Review validation
+
+Additional connected tests exercise the real entry decorators: an entry ViewModel
+survives an inactive tab and is cleared when its entry is popped, then recreated
+on re-entry. The saved-state test fixes its content locale to English so a stored
+Persian app locale cannot invalidate an English selector. This is test isolation,
+not a production locale change.
+
+Synthetic `OnBackPressedDispatcher` start/progress/cancel/complete events verify
+that NavDisplay cancellation retains a Settings child and completion pops it.
+These are actual AndroidX dispatch events through the installed Navigation 3
+implementation, not a physical edge-swipe test. No competing Back engine was added.
+
+`tools/Test-TaskRestoration.ps1` additionally proves process termination and
+restoration of the existing task on a disposable API 26 emulator: the old PID is
+absent, a new PID appears, the task ID is unchanged and the nested About page
+returns. ActivityManager retained the background process on this emulator, so the
+successful run used a debug app-UID SIGKILL. It is not force-stop/relaunch, not an
+Activity recreation, and not a real memory-pressure/low-memory-killer event.
+Physical gestures, low-memory pressure and API 33 task-restoration testing remain
+separate unverified environments; see the review report and manual QA checklist.

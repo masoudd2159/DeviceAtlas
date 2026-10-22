@@ -1,6 +1,7 @@
 # Foundation validation — 2026-10-22
 
 Current Phase 1 validation is recorded in [the Phase 1 report](phase-1-report.md).
+Current correction evidence is in its [review-closure section](phase-1-report.md#phase-1-review-closure).
 The Phase 0 development evidence below is preserved unchanged.
 
 Historical add-only foundation record. Current Phase 0 behavior and results are in

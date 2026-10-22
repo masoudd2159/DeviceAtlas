@@ -40,3 +40,30 @@ and doubled font size. Real theme choice is read/written off-main by
 load/write exposes a recoverable error. Activity state survives configuration
 changes; process restart reloads storage. System bars follow the selected theme
 while preserving edge-to-edge content/insets.
+
+## Review closure: theme effects and manual QA
+
+The Activity's `SideEffect` is retained. It publishes the resolved dark/light
+appearance after a successful composition; it is not an animation-frame loop.
+Navigation state is read in the child shell, so changing a tab does not inherently
+require an Activity-root recomposition. The platform calls are idempotent and no
+measured or correctness defect justified a different effect lifecycle. Tests now
+verify status/navigation bar icon contrast for Light/Dark/System and recreation
+on API 26 and 33. Dynamic palette selection and surface/content contrast are
+checked against the available platform palette (and the API 26 fallback), not
+claimed for every possible wallpaper.
+
+Preference retry now repeats the latest failed write instead of reloading the
+previous theme. Pending choices, reads, writes and retries share the existing
+mutex; cancelled work does not become an error. Read failures release startup
+into a recoverable UI. No persistence framework or locale store was added.
+
+The following manual checks remain **NOT RUN** and should be performed on the
+corresponding real input/device environments:
+
+| Check | Reproducible procedure |
+| --- | --- |
+| Spoken TalkBack traversal | In English and Persian, traverse headings, all navigation items, Settings rows and radio choices. Confirm one useful label/action, selected-state speech and logical order. Visit Diagnostics and check the polite status announcement. |
+| Hardware keyboard | Tab/Shift-Tab through navigation, Back and Settings choices; activate with Enter/Space and confirm visible focus, selection and no focus traps. |
+| Real predictive gesture | On a gesture-enabled supported device, partially swipe Back in a Settings child and cancel; confirm the child remains. Complete the gesture, then Back through Settings/Overview. |
+| Physical foldable/tablet posture | Resize/fold/unfold with a nested Settings destination selected, in both languages and at 200% font. Confirm one navigation control, retained selection, readable scrollable content and correct insets. |

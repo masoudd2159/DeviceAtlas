@@ -13,6 +13,20 @@ import io.github.masoudd2159.deviceatlas.presentation.navigation.rememberAppNavi
 import io.github.masoudd2159.deviceatlas.presentation.settings.SettingsUiState
 import io.github.masoudd2159.deviceatlas.presentation.shell.DeviceAtlasApp
 import io.github.masoudd2159.deviceatlas.presentation.theme.DeviceAtlasTheme
+import io.github.masoudd2159.deviceatlas.presentation.navigation.AppNavigationState
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.ui.NavDisplay
+import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.luminance
+import io.github.masoudd2159.deviceatlas.presentation.theme.FoundationLightColors
+import io.github.masoudd2159.deviceatlas.presentation.theme.FoundationDarkColors
+import android.os.Build
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -47,9 +61,11 @@ class AdaptiveShellTest {
     @Test fun savesTypedNestedStackAndSelectionAcrossSavedStateRestoration() {
         val restoration = StateRestorationTester(compose)
         restoration.setContent {
-            val navigation = rememberAppNavigationState()
-            DeviceAtlasTheme(dynamicColor = false) {
-                DeviceAtlasApp(SettingsUiState(loaded = true), AppLanguage.ENGLISH, {}, {}, {}, navigation)
+            DeviceConfigurationOverride(DeviceConfigurationOverride.Locales(LocaleList("en"))) {
+                val navigation = rememberAppNavigationState()
+                DeviceAtlasTheme(dynamicColor = false) {
+                    DeviceAtlasApp(SettingsUiState(loaded = true), AppLanguage.ENGLISH, {}, {}, {}, navigation)
+                }
             }
         }
         compose.onNodeWithTag("nav_SETTINGS").performClick()
@@ -76,5 +92,61 @@ class AdaptiveShellTest {
         compose.onNodeWithText("دربارهٔ برنامه").performScrollTo().assertIsDisplayed().performClick()
         compose.onNodeWithText("نسخهٔ برنامه").performScrollTo().assertIsDisplayed()
         compose.onNodeWithContentDescription("بازگشت").assertHasClickAction()
+    }
+
+    @Test fun entryViewModelSurvivesInactiveTabAndClearsWhenPopped() {
+        lateinit var navigation: AppNavigationState
+        val models = mutableMapOf<Destination, EntryModel>()
+        compose.setContent {
+            navigation = rememberAppNavigationState()
+            NavDisplay(entries = navigation.decoratedEntries(entryProvider {
+                entry<Destination> { destination ->
+                    val model = viewModel { EntryModel().also { models[destination] = it } }
+                    Text(destination.name + model.cleared)
+                }
+            }), onBack = navigation::back)
+        }
+        compose.runOnIdle { navigation.navigate(Destination.ABOUT) }
+        compose.waitForIdle()
+        val about = models.getValue(Destination.ABOUT)
+        compose.runOnIdle { navigation.navigate(Destination.DEVICE) }
+        compose.waitForIdle()
+        assertFalse(about.cleared)
+        compose.runOnIdle { navigation.navigate(Destination.SETTINGS) }
+        compose.waitForIdle()
+        assertSame(about, models.getValue(Destination.ABOUT))
+        compose.runOnIdle { navigation.back() }
+        compose.waitForIdle()
+        assertTrue(about.cleared)
+        compose.runOnIdle { navigation.navigate(Destination.ABOUT) }
+        compose.waitForIdle()
+        assertNotSame(about, models.getValue(Destination.ABOUT))
+    }
+
+    @Test fun dynamicThemeUsesPlatformPaletteOrFallbackAndReadableContent() {
+        val dark = mutableStateOf(false)
+        compose.setContent {
+            DeviceAtlasTheme(darkTheme = dark.value, dynamicColor = true) {
+                val context = LocalContext.current
+                val expected = if (Build.VERSION.SDK_INT >= 31) {
+                    if (dark.value) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+                } else if (dark.value) FoundationDarkColors else FoundationLightColors
+                val actual = MaterialTheme.colorScheme
+                assertEquals(expected.primary, actual.primary)
+                assertEquals(expected.surface, actual.surface)
+                val a = actual.surface.luminance()
+                val b = actual.onSurface.luminance()
+                assertTrue((maxOf(a,b) + 0.05f) / (minOf(a,b) + 0.05f) >= 4.5f)
+                Text("Theme palette")
+            }
+        }
+        compose.runOnIdle { dark.value = true }
+        compose.waitForIdle()
+    }
+
+    private class EntryModel : ViewModel() {
+        var cleared = false
+            private set
+        override fun onCleared() { cleared = true }
     }
 }

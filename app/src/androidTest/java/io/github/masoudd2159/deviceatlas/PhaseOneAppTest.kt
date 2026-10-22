@@ -11,6 +11,8 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.core.os.LocaleListCompat
+import androidx.activity.BackEventCompat
+import androidx.core.view.WindowCompat
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -119,6 +121,47 @@ class PhaseOneAppTest {
         } finally {
             compose.runOnUiThread { compose.activity.requestedOrientation = original }
         }
+    }
+
+    @Test fun syntheticPredictiveBackCancellationKeepsNestedStackThenCompletionPops() {
+        settingsChild(R.string.language, "LANGUAGE")
+        val back = compose.activity.onBackPressedDispatcher
+        compose.runOnUiThread {
+            back.dispatchOnBackStarted(BackEventCompat(0f, 300f, 0f, BackEventCompat.EDGE_LEFT))
+            back.dispatchOnBackProgressed(BackEventCompat(80f, 300f, 0.4f, BackEventCompat.EDGE_LEFT))
+        }
+        compose.waitForIdle()
+        compose.runOnUiThread { back.dispatchOnBackCancelled() }
+        waitForPage("LANGUAGE")
+        compose.onNodeWithText(text(R.string.english)).assertIsDisplayed()
+        compose.runOnUiThread {
+            back.dispatchOnBackStarted(BackEventCompat(0f, 300f, 0f, BackEventCompat.EDGE_LEFT))
+            back.dispatchOnBackProgressed(BackEventCompat(120f, 300f, 0.7f, BackEventCompat.EDGE_LEFT))
+        }
+        compose.waitForIdle()
+        compose.runOnUiThread { back.onBackPressed() }
+        waitForPage("SETTINGS")
+        compose.runOnUiThread { back.onBackPressed() }
+        waitForPage("OVERVIEW")
+    }
+
+    @Test fun systemBarIconContrastFollowsSelectedThemeAndSystemMode() {
+        settingsChild(R.string.appearance, "APPEARANCE")
+        val systemIsLight = compose.activity.resources.configuration.uiMode and
+            Configuration.UI_MODE_NIGHT_MASK != Configuration.UI_MODE_NIGHT_YES
+        listOf(R.string.dark to false, R.string.light to true, R.string.follow_system to systemIsLight).forEach { (label, lightIconsBackground) ->
+            compose.onNodeWithText(text(label)).performClick()
+            compose.waitUntil(10_000) {
+                val controller = WindowCompat.getInsetsController(compose.activity.window, compose.activity.window.decorView)
+                controller.isAppearanceLightStatusBars == lightIconsBackground &&
+                    controller.isAppearanceLightNavigationBars == lightIconsBackground
+            }
+        }
+        compose.activityRule.scenario.recreate()
+        waitForPage("APPEARANCE")
+        val controller = WindowCompat.getInsetsController(compose.activity.window, compose.activity.window.decorView)
+        assertEquals(systemIsLight, controller.isAppearanceLightStatusBars)
+        assertEquals(systemIsLight, controller.isAppearanceLightNavigationBars)
     }
 
     @Test fun resourceLocalesResolvePersianAndUnsupportedLanguagesFallBackToEnglish() {

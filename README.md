@@ -180,3 +180,46 @@ and crash dumps are ignored. The project-scoped Graphify skill/hook installation
 is retained locally and excluded through `.git/info/exclude`; it is not part of
 the intended application source changes. Required wrapper assets and Cargo.lock
 remain source-controlled inputs.
+
+## Development Tools — Exporting Codex Changes
+
+Run the helper from anywhere inside this repository with Windows PowerShell 5.1
+or PowerShell 7 and Git installed:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\export-codex-changes.ps1 -Base HEAD~1
+```
+
+The example invocation assumes the repository root. Omit `-Base` to compare with
+HEAD. The helper combines staged and unstaged changes into their final working
+versions, includes non-ignored untracked text files, and records tracked deletions.
+It creates a uniquely named `codex-changes-<project>-<timestamp>-<id>/` folder and
+matching ZIP in the repository's parent directory. No existing output is overwritten.
+Use `-OutputParent 'D:\Review Exports'` for another existing directory outside the
+repository. The Git working tree, index, history and caller location are preserved.
+
+The bundle contains `files/` with accepted current files, `changes.patch` with
+accepted tracked changes, filtered `git-status.txt` and `changed-files.txt`, and
+`README.txt` with the resolved base commit and exclusion count. Untracked files
+are copies, not patch additions. Renames are represented as delete/add. The
+running exporter excludes itself, as in the original utility.
+
+Generated output, IDE/tool state, local configuration, signing/credential stores,
+logs, binary/non-UTF-8 files, links, and suspected secrets/private paths/device
+identifiers are excluded, including from patches and metadata. Both the selected
+base and current content are checked so removed credentials do not leak through a
+diff. Defaults are 1 MiB per file version and 10 MiB total input across base/current
+versions; adjust with `-MaxFileBytes` and `-MaxTotalBytes` (maximum 100 MiB each).
+These limits can omit large source files; the bundle is a filtered review aid,
+not a backup. Avoid editing files during export.
+
+Detection is conservative and heuristic: inspect the folder, patch and metadata
+before manually sharing the ZIP with ChatGPT. Arbitrary secrets or identifiers
+can evade detection; legitimate examples can be excluded. The helper performs no
+upload, fetch, push or other remote operation. Review bundles moved back into the
+repository are ignored. To run the isolated regression checks without changing
+this repository:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Test-ExportCodexChanges.ps1
+```

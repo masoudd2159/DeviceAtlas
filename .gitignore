@@ -17,6 +17,10 @@ hs_err_pid*.log
 **/target/
 graphify-out/
 
+# Local review bundles (normally created outside the repository)
+codex-changes-*/
+codex-changes-*.zip
+
 # Local signing material
 *.jks
 *.keystore

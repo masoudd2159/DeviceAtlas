@@ -254,17 +254,26 @@ Tools, NDK, Rust and cargo-ndk prerequisites and uses JDK 25. It has read-only
 repository permissions, cancellable concurrency and bounded job timeouts; no
 production signing, deployment or artifact upload is configured.
 
-**CI configured locally; GitHub-hosted execution NOT RUN until authorized push.**
-YAML/security structure and Bash syntax were checked locally. Network/DNS was
-unavailable during the review, so live verification of Action refs and replacement
-of the two official v5 major refs with reviewed immutable SHAs remain required
-before merge. Checkout records the v4.2.2 immutable revision.
+Hosted run [39832385114](https://github.com/masoudd2159/DeviceAtlas/actions/runs/39832385114)
+failed workflow validation before any jobs were created: a step's shell field
+cannot use the matrix context. The local correction uses fixed shells with matrix
+conditions; actionlint now passes. Both official v5 setup Actions were resolved,
+their configured inputs checked and their immutable revisions pinned. YAML,
+permissions, runner labels and Bash syntax were checked locally. **Hosted execution
+of the corrected workflow remains NOT RUN pending an authorized push.**
 
 Current review evidence: **32 JVM tests, 26 connected tests per runtime, 12 Rust
 tests per runtime, and 246 exporter assertions per PowerShell edition**. The
 Windows MSVC linker gap remains separate from the proposed Linux CI host job.
-See [review closure](docs/phase-1-report.md#phase-1-review-closure) for commands,
-remaining manual gaps, and the killed-process/existing-task restoration result.
+These are prior verification results, not newly rerun suites. See
+[final acceptance](docs/phase-1-report.md#final-phase-1-closure-and-phase-2-readiness)
+for the current decision and fresh checks; the earlier review closure preserves
+commands, manual gaps and the killed-process/existing-task restoration result.
+
+**Phase 1 accepted with documented verification limitations. Ready for Phase 2 planning.**
+Phase 2 implementation has not started. Hosted CI and unavailable manual/device
+environments remain explicit follow-up risks rather than universal prerequisites
+for accepting this engineering foundation.
 
 An installed debug app on an explicitly selected disposable emulator can run the
 additional restoration check (adb must be on PATH):

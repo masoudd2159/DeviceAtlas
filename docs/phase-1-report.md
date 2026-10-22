@@ -3,6 +3,8 @@
 Sections A–M below preserve the implementation record through `c6563d4`.
 The [review closure](#phase-1-review-closure) is the current correction/quality-gate
 record; historical counts and limitations below are not substituted for fresh tests.
+The [final acceptance addendum](#final-phase-1-closure-and-phase-2-readiness)
+supersedes earlier acceptance conditions and CI status while preserving that history.
 
 ## A. Executive summary
 
@@ -495,3 +497,104 @@ is not full environment/manual verification: Windows host linking, real 16 KiB
 execution, spoken TalkBack, physical keyboard/gesture/foldable checks, real LMK
 and API 33 killed-task restoration remain outstanding. No push, PR, merge, tag,
 release or Phase 2 work is authorized or performed by this closure.
+
+## Final Phase 1 closure and Phase 2 readiness
+
+Final pragmatic review: 2026-10-22, branch
+`feature/phase-1-architecture-designsystem`. The clean starting HEAD and freshly
+fetched remote feature ref were both
+`115d033a20eb702af8354c01fa17f4c63fd44971`; the one fetch succeeded. The final reviewed
+source/workflow commit is `091a1e1ae0c3a6679a9b9dbdd1141336d455fb6f`
+(`fix(ci): use supported shell contexts and pin verified setup actions`). This
+acceptance addendum follows in a documentation commit; `git log -2 --oneline`
+identifies both without embedding a self-referential documentation commit hash.
+`master` remains `c7e9167dd7155a23b21e45af758e571cb73102f6`.
+
+### Final source review and actual correction
+
+No new material application, exporter, preference, navigation, locale or Rust/JNI
+defect was found. Source review confirmed bounded private-path filtering and
+historical-content checks; serialized latest-choice retry and cancellation;
+off-main Boolean persistence; typed saved tab stacks and official entry lifetime
+decorators; runtime AppCompat locale ownership; accessible component semantics;
+and an off-main JNI gateway to the unchanged Rust algorithms. Existing synthetic
+Back and killed-process restoration coverage is preserved. Structural hardware
+pages still report unavailable functionality honestly. No application/native
+code, tests, resources, toolchain pins or four-ABI configuration changed.
+
+One genuine development-workflow defect was reproduced and corrected.
+[Hosted run 39832385114](https://github.com/masoudd2159/DeviceAtlas/actions/runs/39832385114)
+failed workflow validation at line 95: `matrix` was unavailable in the step's
+`shell` expression. GitHub's jobs API returned an empty list; **zero jobs ran**.
+This is a pre-scheduling workflow error, not an Android/Rust test failure, runner
+capacity diagnosis or proof of a billing restriction. Public Actions settings
+inspection returned HTTP 401, so account/settings restrictions remain unverified;
+none are needed to explain this specific failure. No subscription is required
+or requested by this review.
+
+The two matrix entries now select fixed-shell steps using supported step `if`
+conditions. Official v5 refs were reconfirmed through GitHub's refs API and their
+configured inputs checked in the manifests at the exact revisions before pinning:
+
+- [setup-java](https://github.com/actions/setup-java/blob/b6effb05e454b25005698d916606bdc6ffcbf961/action.yml): `b6effb05e454b25005698d916606bdc6ffcbf961`.
+- [setup-gradle](https://github.com/gradle/actions/blob/0723195856401067f7a2779048b490ace7a47d7c/setup-gradle/action.yml): `0723195856401067f7a2779048b490ace7a47d7c`.
+
+Triggers, runners, read-only permissions, timeouts and build commands are retained.
+No workflow rerun, remote write, production signing, upload or deployment occurred.
+**Hosted verification of the corrected workflow is NOT RUN pending an authorized
+push.** The historical failed run remains FAILURE; no green hosted result is claimed.
+
+### Verification evidence and Definition of Done
+
+Previously executed evidence at unchanged application source remains: 32 JVM
+tests; 26 connected tests on each API 26 x86_64/API 33 ARM64 target; 12 standalone
+Rust tests on each; debug/release/AAB builds; offline/configuration-cache checks;
+Rust fmt/Clippy; 246 exporter assertions per PowerShell edition; four-ABI/JNI
+packaging and static alignment. Those suites were **not rerun in this task**.
+
+Fresh checks actually executed:
+
+- Official actionlint 1.7.12 was downloaded locally with its release digest and
+  checksum verified. `actionlint.exe -shellcheck= -pyflakes= .github/workflows/verify.yml`
+  reproduced the matrix error (exit 1) before the fix and passed afterward (exit 0).
+  ShellCheck/Pyflakes were not run; five Linux scripts separately passed `bash -n`.
+- YAML structural assertions passed for triggers, permissions, runners, bounded
+  jobs, pinned Action inputs and exactly one correct test step per shell entry.
+- Fresh English/Persian resource checks passed: 50/50 keys, nonempty translations,
+  no duplicate keys and matching format placeholders. This is not spoken/UI testing.
+- Focused Graphify paths confirmed navigation ownership and RustNativeMath's
+  NativeMath contract. No application implementation change required a rebuild.
+- Git scope/whitespace checks passed. Application, native integration, exporter
+  and regression suites match the previously verified source exactly. Only the
+  workflow, README and this report changed; local diagnostic tools remain ignored.
+
+| Phase 1 requirement | Closure assessment |
+| --- | --- |
+| Stable shell, preferences, navigation and bilingual design system | Satisfied by source review and existing local behavioral evidence |
+| Rust-first ownership, JNI and four native ABIs | Preserved; no computation duplication or native regression introduced |
+| Privacy and honest structural feature states | Preserved; no permissions, telemetry or hardware acquisition added |
+| Essential development workflow | Reproduced CI validation defect fixed; semantic lint passes locally |
+| Accurate evidence and remaining limitations | Recorded separately for prior execution, fresh checks and unrun environments |
+
+Windows MSVC host linking remains BLOCKED. Actual 16 KiB-page execution, spoken
+TalkBack, physical keyboard/foldable testing, real predictive gestures, real LMK
+and API 33 killed-task restoration remain unverified. Existing noncritical lint
+advisories remain unsuppressed. These and pending hosted CI are documented
+limitations, not passing results or automatic rejection of this foundation.
+
+### Acceptance and handoff
+
+**Phase 1 accepted with documented verification limitations. Ready for Phase 2 planning.**
+
+The earlier conditional merge recommendation is superseded by this pragmatic
+milestone decision. No critical source defect or broken required local check
+remains known; full hardware/environment certification is not claimed. No merge
+or push is performed or authorized here.
+
+Future planning can extend the existing foundation capability contracts and Hilt
+bindings for Android acquisition, injected dispatchers for platform work, entry
+ViewModels/StateFlow for lifecycle-owned UI, and the Kotlin JNI gateway/Rust crate
+for platform-independent processing. Preserve typed unavailable/error states.
+Carry forward permission/data-minimization design, bounded native work and
+cancellation, real-device/runtime coverage and the first corrected hosted CI run.
+No collectors, permissions, modules or Phase 2 implementation were added.

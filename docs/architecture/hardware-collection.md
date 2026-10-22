@@ -119,6 +119,27 @@ refresh and on overall failure; partial failures carry their own reason in the
 new batch. ViewModel cancellation prevents late publication. No Flow creates a
 polling loop, unmanaged scope, service or retained Activity context.
 
+HardwareRefresh renders one mutually exclusive status for idle/no data, loading,
+initial failure, refreshing existing data or failed refresh. A failed initial
+load offers Retry without claiming it is still waiting; existing capture times
+remain visible. Loading text has indeterminate progress semantics and the status
+container retains its polite live region.
+
+Sensor expansion is scoped to a presentation-only inventory revision plus the
+collection index. Every successfully returned inventory, including an equal or
+empty list at the same timestamp, advances a checked Long counter. Ordinary
+recomposition and restoration within that revision retain expansion; a new
+inventory collapses details. SavedStateHandle saves only the counter, so a new
+ViewModel after process recreation advances beyond the restored revision before
+displaying new data. It saves no sensors, metadata, fingerprints or hardware IDs.
+Foreground refresh after Activity recreation can legitimately replace the
+inventory and collapse details. Failed refreshes retain the existing revision.
+
+Diagnostics shows inventory status separately: a successful query explicitly
+reports its count (including zero), while unavailable inventory shows its reason.
+Field counts still include device fields and individual sensor metadata only;
+the inventory row is excluded from those counts. Availability is not a health score.
+
 To add a field: define its typed key/source/freshness and raw unit, collect via a
 public API with guards and field isolation, add a Rust operation only if new
 numeric semantics require one, provide English/Persian labels, extend matrix and

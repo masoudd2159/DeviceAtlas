@@ -330,3 +330,250 @@ boundary, bounded native processing and shared foreground state can support late
 features. Live monitoring, deeper diagnostics and benchmarks require separate
 scope, lifecycle/power/privacy design and additional validation. None is enabled
 or implemented by this phase.
+
+---
+
+# Phase 2 — Final Code Review Corrections
+
+Date: 2026-10-23. The report above preserves the original implementation evidence.
+Results below concern only the final review corrections, starting from
+`f75eef8f3894bbaa727757b9affdbfa093dd894a`.
+
+## A. Executive summary
+
+Four focused corrections finalize the existing Phase 2 implementation: consistent
+initial loading/failure/retry presentation; refresh-scoped sensor expansion;
+OEM-safe real-device assertions; and explicit Diagnostics inventory status.
+No hardware collector, native algorithm, dependency, toolchain or permission changed.
+
+## B. Initial state
+
+Preflight found feature/phase-2-device-intelligence checked out, clean, and equal
+to origin at the reviewed SHA. All five Phase 2 commits were present. Local and
+remote master were `f99a48e7ca63134ffd395499c80d68271544cd80`. Fetch found no
+unexpected commits. GitHub confirmed [baseline run 39850034616](https://github.com/masoudd2159/DeviceAtlas/actions/runs/39850034616)
+was a successful push run for f75eef8: Android/four-ABI, Rust host, Windows
+PowerShell exporter and PowerShell 7 exporter all succeeded.
+
+## C. Confirmed defects and reproduction
+
+| Severity in this task | Source | Root cause and impact | Reproduction / correction |
+|---|---|---|---|
+| High | HardwareScreens.kt / HardwareRefresh | Independent failure/no-snapshot conditions implied an ended failed operation was still loading | Initial-failure fixtures in both locales failed before correction; use one mutually exclusive status policy |
+| Medium | HardwareScreens.kt / SensorCard and lazy item keys | Positional keys plus type/index saveable inputs can reuse expansion for a different same-type sensor | Two sensors with identical type/name/vendor but different metadata were reordered at the same timestamp; old code retained an expanded card; inventory revision now scopes all sensor item state |
+| Medium, test portability | HardwareScreenTest.kt | Assertions expected Build.MODEL.trim() even when the sanitizer rejects that metadata, and one test inherited locale/theme | Assertions now use platformText and scoped localized unavailable reasons; deterministic fixtures cover null/blank/unknown/control characters; per-test preferences are isolated/restored |
+| Low–medium | HardwareScreens.kt / HardwareIntegrity | Whole-inventory unavailable state was excluded from field flattening and silently omitted | Empty/nonempty/unavailable inventory fixtures failed before correction; separate localized inventory status row now reports the outcome |
+
+The first targeted Compose run executed 12 cases with 8 expected failures against
+the old rendering/keys (revision field was present but not yet consumed by those
+keys). The reorder test reproduced a state-association bug for same-type sensors;
+it does not claim Android normally reorders its inventory. The distinct-type
+accelerometer/gyroscope example is insufficient by itself because existing
+rememberSaveable type inputs can reset that case.
+
+## D. UI state correction
+
+| Snapshot | Refreshing | Failed | Presentation |
+|---|---|---|---|
+| None | false | false | Honest not-yet-loaded prompt and enabled Refresh |
+| None | true | either | Loading only; action disabled, indeterminate progress semantics |
+| None | false | true | Initial load failed and enabled Retry; no loading text |
+| Present | false | false | Original capture time, no stale status message |
+| Present | true | either | Refreshing with original capture time; action disabled |
+| Present | false | true | Failed refresh with original capture time and existing data |
+
+Successful retry clears failure/loading. Active work takes precedence over a stale
+failure flag. The polite live region remains; Settings/navigation are never blocked
+by a global loading screen. HardwareReviewRegressionTest covers initial failure
+in English/Persian, loading/action semantics, initial retry and recovery with data.
+
+## E. Sensor identity and restoration policy
+
+HardwareUiState carries a presentation-only Long sensorInventoryRevision. Each
+successful available inventory replacement, including an equal/empty list at the
+same timestamp, advances it with checked arithmetic. Failed refresh or unavailable
+inventory does not invent an available-inventory revision. Lazy item keys and
+rememberSaveable inputs include revision plus the unique collection index.
+
+This deliberately collapses details for a new inventory instead of pretending
+that type/name/vendor is a reliable sensor identity. Same-type/name/vendor
+duplicates remain independent. Ordinary recomposition and saved-instance-state
+restoration within the same revision preserve legitimate expansion. An Activity
+resume that produces a fresh inventory resets it, even if its contents look equal.
+SavedStateHandle saves only the revision counter; a newly recreated ViewModel
+advances beyond that saved counter before displaying new inventory, preventing
+collision with restored expansion from a prior owner. No hardware observation,
+sensor fingerprint, persistent sensor ID or registry is saved.
+
+Tests cover same-type reorder, same timestamp, normal recomposition, identical
+duplicates, StateRestorationTester restoration, equal successful replacements,
+failed/unavailable results and restored-owner counter advancement. Existing
+Activity recreation/navigation tests remain in the complete runtime suites.
+
+## F. OEM portability
+
+HardwareScreenTest derives expected model text with the exact production
+platformText sanitizer. Available text is checked inside hardware_MODEL; missing
+metadata uses reasonLabel and current localized resources. No second sanitizer,
+OEM constant or weakened launch-only assertion is introduced. Tests compare real
+Build.MODEL with real production output. Fake-only Persian fixtures cover missing,
+blank, unknown and long mixed technical metadata.
+
+Before each real-device test, original app locales/theme are saved, English and
+Light are selected through the existing locale/UI paths, and locale/persistence
+completion is awaited. Teardown restores original preferences. Fake Compose tests
+use DeviceConfigurationOverride for locale rather than global app language changes.
+
+## G. Diagnostics
+
+Inventory is a separate row: successful query plus sensor count (zero is valid),
+or unavailable plus its specific localized reason. Field totals continue to count
+device fields and individual sensor metadata only; inventory is excluded and the
+scope is explained. Partial sensor metadata failures still contribute to invalid,
+native-error and unavailable-field counts. Tests cover empty inventories in both
+languages, nonempty inventory with partial errors and unavailable inventory.
+The original mean integration check remains unchanged.
+
+## H. Gradle connected-test investigation
+
+One controlled API 26 emulator attempt selected only the new regression class.
+It reproduced INSTALL_FAILED_ALREADY_EXISTS installing the already-present app
+APK; the task again returned exit 0 without executing the requested tests. This
+is recorded as a failed installation, not a successful test run.
+
+Inspection of the installed Android test engine 1.0.1 installer bytecode shows
+that -r/-d flags are conditional on forceReinstall. Explicit adb install -r of the
+same app/test APKs succeeds, so this evidence does not indicate a signing mismatch.
+The complete upstream cause of the runner configuration/false-success behavior
+was not established. No Gradle/AGP pin, SDK bootstrap, test option or device setting
+was changed, and no personal app was uninstalled or cleared. The verified fallback
+is explicit device selection, replacement installation of this app's APKs, and
+direct AndroidJUnitRunner execution. A Gradle exit code alone remains insufficient.
+
+## I. Architecture and Rust/JNI
+
+Android acquisition, reader mutex, qualified dispatchers, Hilt, Navigation 3 and
+Rust-first numeric processing remain intact. Native sources and JNI declarations
+have no diff from the reviewed baseline. viewModelScope remains the job owner;
+duplicate refreshes coalesce, cancellation propagates and ensureActive prevents
+late publication. Only UI revision state uses the existing SavedStateHandle API;
+there is no new storage framework, polling loop, background service or hardware ID.
+
+## J. Fresh verification
+
+Fresh command/evidence record (local build logs and generated XML remain ignored):
+
+| Command / check | Actual result | Evidence |
+|---|---|---|
+| `gradlew.bat :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleRelease :app:bundleRelease :app:lintDebug :app:lintRelease :app:build --max-workers=2 --console=plain` | PASS; 51 JVM tests, 0 failures; debug/release/test APK/AAB; 0 lint errors and the same 2 existing warnings per variant | build/review2-final-build.log; app/build/test-results/testDebugUnitTest/TEST-*.xml |
+| Direct AndroidJUnitRunner, new HardwareReviewRegressionTest only, before renderer/key fixes | Expected FAIL; 12 cases, 8 failures, including same-type reorder | build/review2-compose-red.log |
+| Direct AndroidJUnitRunner, focused class after fixes | PASS; 12 cases, 0 failures | build/review2-focused-green.log and .xml |
+| Full explicit AndroidJUnitRunner on selected API 26 x86_64 emulator | PASS; 48 tests, 0 failures/errors/skips, 32.672s | build/review2-api26-final.log and .xml |
+| Full explicit AndroidJUnitRunner on selected API 33 ARM64 device | PASS; 48 tests, 0 failures/errors/skips, 85.353s | build/review2-api33-final.log and .xml |
+| `gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=io.github.masoudd2159.deviceatlas.HardwareReviewRegressionTest --max-workers=2 --console=plain`, ANDROID_SERIAL set to API 26 emulator | FAIL at app installation; zero requested tests executed despite exit 0 | build/review2-connected-reproduction.log |
+| `gradlew.bat :app:assembleDebug --offline --max-workers=2 --console=plain` | PASS; configuration cache reused, no dependency/native downloads | build/review2-offline.log |
+| `cargo fmt --manifest-path native/Cargo.toml --all -- --check` | PASS | Tool output in this execution |
+| `cargo clippy --manifest-path native/Cargo.toml --locked --all-targets -- -D warnings` | PASS | Tool output in this execution |
+| `cargo test --manifest-path native/Cargo.toml --locked` | BLOCKED; Windows link.exe missing, exit 101 | build/review2-rust-host.log |
+| Four-ABI APK/AAB entries and both JNI symbols on every release .so | PASS | SDK ZIP inspection / llvm-readelf in this execution |
+| `zipalign -c -P 16 -v 4 app/build/outputs/apk/release/app-release-unsigned.apk` | PASS | Verification successful in this execution |
+| Packaged release permissions via aapt | PASS; existing app-private signature receiver permission only | SDK aapt in this execution |
+| Temporary debug-signed minified release runtime check on both devices | PASS; launch/navigation, zero native-processing failures, original mean=4.0; debug app restored | build/review2-release-smoke.log |
+| `graphify update .` | PASS with the existing extractor limitations; AST-only, no API cost; 997 nodes/1965 edges/61 communities | build/review2-graph.log, untracked/ignored graph output |
+| Genuine 16 KiB-page execution, complete manual TalkBack/physical foldable matrix | NOT RUN; unchanged environment coverage limits | Original report O and final delivery report |
+
+The direct path installs only this app/test APK with `adb -s <selected device>
+install -r`, then runs `adb -s <selected device> shell am instrument -w -r
+io.github.masoudd2159.deviceatlas.test/androidx.test.runner.AndroidJUnitRunner`.
+Local JUnit XML is converted from the raw runner's per-test status events, with
+the final OK test count checked against recorded cases; it is not misrepresented
+as output from the failed Gradle connected task. The ignored helper fails on any
+test failure or incomplete runner output. All original tests are retained.
+
+The first lint invocation encountered a Kotlin/UAST resolver internal failure;
+subsequent analysis exposed configuration-awareness errors in the new test fixture
+and a test-only SavedStateHandle constructor default warning. Fixtures now use
+LocalConfiguration/stringResource, and production Hilt supplies SavedStateHandle
+without a test constructor default. Final lint passes without disabling detectors,
+adding a baseline or changing any pinned version. The original 19-per-runtime
+native execution above remains historical evidence: native/JNI sources did not
+change, so those device-native binaries were not needlessly rerun. Fresh hosted
+Rust results belong to the final pushed SHA only when CI confirms them.
+
+## K. Localization and accessibility
+
+Six paired strings bring English/Persian resources to 232 keys each. Existing
+LocalizationTest checks parity, duplicates, placeholders, nonempty translations
+and Persian characters. Refresh retains a polite live region and now exposes
+indeterminate progress semantics; Retry/Refresh is disabled during active work.
+English/Persian fake tests are configuration-aware (LocalConfiguration and
+stringResource). Existing Persian 200% font, RTL, themes and navigation checks remain.
+
+## L. Privacy and security
+
+The manifest, dependencies, backups, native methods and toolchain files are
+unchanged. No permission, networking, telemetry, hidden API, unique identifier,
+sensor sampling or snapshot export was added. The saveable revision is only a
+local UI counter. No hardware data is put in SavedStateHandle. Generated Graphify
+artifacts, local runners, XML/log evidence, binaries, private paths and signing
+material remain ignored development artifacts and are not staged.
+
+## M. Changed files
+
+Nine files changed; no native, collector, build pin, manifest or workflow diff:
+
+```text
+app/src/main/java/io/github/masoudd2159/deviceatlas/presentation/hardware/HardwareScreens.kt
+app/src/main/java/io/github/masoudd2159/deviceatlas/presentation/hardware/HardwareViewModel.kt
+app/src/main/res/values/strings.xml
+app/src/main/res/values-fa/strings.xml
+app/src/androidTest/java/io/github/masoudd2159/deviceatlas/HardwareReviewRegressionTest.kt
+app/src/androidTest/java/io/github/masoudd2159/deviceatlas/HardwareScreenTest.kt
+app/src/test/java/io/github/masoudd2159/deviceatlas/presentation/hardware/HardwareViewModelTest.kt
+docs/architecture/hardware-collection.md
+docs/phase-2-report.md
+```
+
+## N. Local commits
+
+| SHA | Commit / scope |
+|---|---|
+| 57e3f97b00f10e7d8d5c14013aea342bfac7a2a3 | fix(ui): correct hardware status and scope sensor expansion to inventory — state policy, inventory diagnostics/revision, paired strings, 12 Compose and 3 JVM regression additions |
+| ab82c8faa2500ad0907a95c1ce22877b072f277d | test(android): harden hardware assertions across OEM devices — sanitizer-based expectations, locale/theme setup and restoration |
+
+The subsequent `docs: finalize Phase 2 review corrections and verification`
+commit contains this appendix and the architecture policy update; its SHA is
+reported in the final delivery and Git log. All original five Phase 2 commits
+remain unchanged; no amend, rebase or history rewrite occurred.
+
+## O. Push verification
+
+The user authorized a normal push of this feature branch only. The final delivery
+report records the push result and full verified remote HEAD after a fresh fetch.
+This documentation commit cannot contain its own SHA. Master is not pushed.
+
+## P. Hosted CI
+
+Baseline run 39850034616 is verified successful for f75eef8. New CI must be checked
+after this correction/documentation commit is pushed. Its exact final SHA, run URL
+and all job outcomes are recorded in the final delivery report; the earlier
+baseline run must not be substituted as evidence for the corrected HEAD.
+
+## Q. Final Git safety
+
+Delivery requires local HEAD equal to origin/feature/phase-2-device-intelligence,
+clean status, and unchanged master f99a48e. Only task files are staged, with diff
+whitespace checks. No force-push, master push, tag, release, merge or Phase 3 work
+is authorized or performed. The delivery report contains the final Git inspection.
+
+## R. Final Phase 2 assessment
+
+Final readiness is determined from the corrected local verification and the exact
+pushed SHA's CI status in the delivery report. Unavailable OEM fields, Windows host
+linker absence and a missing genuine 16 KiB runtime remain documented environment
+or platform limits, not fabricated successful tests.
+
+## S. Phase 3 handoff
+
+Device discovery and Rust processing remain available for future separately scoped
+development. This task introduces no live monitoring, benchmark or Phase 3 feature.

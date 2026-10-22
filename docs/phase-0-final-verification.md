@@ -1,5 +1,8 @@
 # Phase 0 final engineering verification — 2026-10-22
 
+The initial verification record below describes commit `c4bc18b`. The **Closure
+addendum** at the end records the later helper review and merge preparation.
+
 The Android foundation passes the available build, lint, unit, JNI, Compose and
 runtime checks with the deliberately selected **NDK 30.0.16248370** and **Build
 Tools 37.0.0**. Neither version was substituted. Windows Rust host tests remain
@@ -214,3 +217,71 @@ The user explicitly permits finalization with documented environment-only
 blockers. Git finalization targets only `feature/phase-0-foundation` with a normal
 non-force push; commit/push outcome is reported separately with the actual SHA
 and remote verification. No PR, merge, master push or release is authorized here.
+
+## Closure addendum — final review and merge preparation
+
+The user subsequently authorized committing the intentional export helper and a
+normal merge/push to master after quality checks. This supersedes the earlier
+Git-operation restriction above. Inspection found feature and origin/feature at
+`c4bc18b2fc3c0ad26d492b771936e0045c60774c`, local/origin master at `259b073`,
+and only the intentional export helper untracked. Fetch revealed no unexpected
+master changes. All source and selected configuration were reviewed again;
+NDK 30.0.16248370, Build Tools 37.0.0, identity, SDK levels, dependencies and four
+ABIs remain unchanged. No new application/native defect or Phase 1 work was added.
+
+The original helper copied unrestricted file content and binary diffs, included
+the absolute project path in metadata and reused timestamp output with Force.
+The reviewed helper now uses UTF-8/NUL-safe Git process capture and literal
+pathspecs, unique output names without overwriting, bounded text input, filtered
+patches/metadata, and base/current privacy checks. Source files live under files/
+so a source README.txt cannot collide with bundle metadata. Staged/unstaged
+content, untracked files, deletions, ZIP output and running-helper exclusion are
+preserved. It does not mutate Git state, upload or run remote Git operations.
+README documents actual parameters, output, conservative exclusions and manual
+review limitations. Review ZIPs/folders are ignored without ignoring the helper.
+
+`tools/Test-ExportCodexChanges.ps1` creates a unique disposable repository outside
+this checkout. **71 assertions pass on Windows PowerShell 5.1.28000.3262 and
+PowerShell 7.6.5**. Coverage includes literal brackets/spaces/Unicode, current
+staged-plus-unstaged content, committed-base selection, empty files, renames,
+deletions, untracked/ignored files, force-added generated/configuration files,
+binary/invalid UTF-8, per-file/total budgets, historical/current secrets,
+credential stores, private paths/device patterns, sensitive filenames, unique
+ZIPs, invalid bases, rejected repository output paths, unchanged HEAD/status and
+byte-for-byte unchanged index. Regression development exposed and corrected a
+multiple-Git-executable discovery issue before committing. No third-party test
+dependency was added. Only generated fixture directories are cleaned up.
+
+Closure verification on the feature branch repeated every Android command in
+the command table above: full build; debug/release APK and release bundle;
+17 JVM tests; both Lint variants; and offline debug build. **All PASS** with
+configuration-cache reuse. Connected tests were explicitly selected using the
+process-only ANDROID_SERIAL environment variable, restored afterward: **13 PASS
+on ARM64/API 33 and 13 PASS on x86_64/API 26**, each with separate zero-failure,
+zero-error, zero-skip XML evidence. No serial is recorded in committed reports.
+Both standalone Android Rust executables were rebuilt/selected and run again:
+**12 PASS on each runtime**. Rust fmt and Clippy PASS. The exact host cargo test
+command was retried and remains **BLOCKED**, exit 101, missing MSVC link.exe.
+No C++ Build Tools/Windows SDK installation was found and the process is not
+elevated. Install Microsoft Desktop development with C++ plus Windows SDK, then
+rerun the documented host command; no linker workaround was introduced.
+
+The available phone reports `getconf PAGE_SIZE` = 4096. The official API 26
+emulator lacks getconf; /proc/self/smaps reports KernelPageSize/MMUPageSize 4 kB.
+Only that official x86_64 image is installed. No readily available 16 KiB runtime
+exists and no additional large downloads were attempted. Actual 16 KiB execution
+remains **NOT RUN**, never inferred from alignment. Prior four-ABI packaging and
+static alignment checks were repeated: both APK ZIP checks PASS with Build Tools
+37.0.0; all four JNI exports are present and both 64-bit ELF LOAD alignments are
+16 KiB. Post-test filtered Logcat contains no AndroidRuntime/native fatal entries
+in the captured window. Application/native inputs remain unchanged.
+
+Local raw closure evidence is ignored under build/phase0-closure. The previous
+reports retain their historical results. The foundation meets the user's merge
+gate with documented environment-only limitations, rather than exhaustive
+runtime coverage: Windows host tests, 16 KiB runtime, separate 32-bit execution,
+OEM backup transport and production signing remain unverified. The reviewed
+single-module foundation is ready for Phase 1 planning; no Phase 1 implementation
+is included. The normal merge must retain the feature branch, preserve source
+trees, repeat checks on merged master and verify remote SHAs; the actual commit,
+merge and push outcomes are reported after those operations execute.

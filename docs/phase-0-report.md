@@ -4,6 +4,10 @@ Current configuration: **NDK 30.0.16248370 and Build Tools 37.0.0**, preserved a
 explicitly selected. Current checks and finalization status are in
 [the final verification report](phase-0-final-verification.md).
 
+Closure review: the final report's **Closure addendum** records the repeated checks,
+reviewed export helper and authorized merge workflow. Earlier results below remain
+historical; they are not relabeled as closure runs.
+
 The development record below is historical (NDK r29). It is retained as evidence
 of the earlier milestones rather than relabeling those runs as r30 verification.
 Branch: `feature/phase-0-foundation`. At that stage no commit, push, merge, PR, or

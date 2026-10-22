@@ -5,6 +5,10 @@ Historical add-only foundation record. Current Phase 0 behavior and results are 
 30.0.16248370 and Build Tools 37.0.0. Versions and results below describe the older
 development runs only.
 
+For the latest closure checks and export-helper regression results, see the
+**Closure addendum** in the final verification report. This file retains the
+original development evidence unchanged.
+
 Work was performed locally on `codex/android-rust-foundation`. No push, merge,
 or pull request was performed. Application ID, namespace, minSdk 26, compile/target
 SDK 37, version code/name, launcher assets, and existing backup policy were preserved.

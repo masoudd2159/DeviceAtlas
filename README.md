@@ -254,13 +254,16 @@ Tools, NDK, Rust and cargo-ndk prerequisites and uses JDK 25. It has read-only
 repository permissions, cancellable concurrency and bounded job timeouts; no
 production signing, deployment or artifact upload is configured.
 
-Hosted run [39832385114](https://github.com/masoudd2159/DeviceAtlas/actions/runs/39832385114)
-failed workflow validation before any jobs were created: a step's shell field
-cannot use the matrix context. The local correction uses fixed shells with matrix
-conditions; actionlint now passes. Both official v5 setup Actions were resolved,
-their configured inputs checked and their immutable revisions pinned. YAML,
-permissions, runner labels and Bash syntax were checked locally. **Hosted execution
-of the corrected workflow remains NOT RUN pending an authorized push.**
+The original shell-context validation error was corrected and both official setup
+Actions are pinned to verified immutable revisions. Hosted run
+[39835900094](https://github.com/masoudd2159/DeviceAtlas/actions/runs/39835900094)
+then passed Linux Rust checks (12 tests) and both PowerShell exporter jobs (252
+assertions each, including filesystem symlinks). Android stopped during SDK
+installation because `platforms;android-37` could not be found; its tests/builds
+did not run. The official catalog publishes `platforms;android-37.0`, not that exact
+required identifier. The workflow preserves the specified package identifiers and
+all toolchain versions; this bootstrap limitation is accepted for Phase 1 only.
+See the [integration note](docs/phase-1-report.md#phase-1-integration-readiness-and-hosted-sdk-evidence).
 
 Current review evidence: **32 JVM tests, 26 connected tests per runtime, 12 Rust
 tests per runtime, and 246 exporter assertions per PowerShell edition**. The

@@ -598,3 +598,59 @@ for platform-independent processing. Preserve typed unavailable/error states.
 Carry forward permission/data-minimization design, bounded native work and
 cancellation, real-device/runtime coverage and the first corrected hosted CI run.
 No collectors, permissions, modules or Phase 2 implementation were added.
+
+## Phase 1 integration readiness and hosted SDK evidence
+
+Integration review started clean on `feature/phase-1-architecture-designsystem`
+at `d449b71e64f81b4ac1a14e2b860ad97a10f03c0b`. A fresh fetch confirmed the remote
+feature at that SHA and remote master at
+`c7e9167dd7155a23b21e45af758e571cb73102f6`, also the merge base. The complete Phase 1
+diff was checked against that baseline: intended architecture/UI/tests/docs/CI
+changes only; Rust/JNI protocol, application identity, SDK levels, NDK, Build Tools,
+four ABIs, release keep rules and backup policy are preserved. No new application
+correction or Phase 2 implementation was needed.
+
+[Hosted run 39835900094](https://github.com/masoudd2159/DeviceAtlas/actions/runs/39835900094)
+at `d449b71` actually created four jobs. Inspected job results/logs establish:
+
+| Hosted job | Actual outcome |
+| --- | --- |
+| Rust host checks | PASS: fmt, Clippy, 12 host tests; Linux evidence does not fix Windows MSVC installation |
+| Windows PowerShell exporter | PASS: 252 assertions on 5.1.20348.5622, including real filesystem symlink coverage |
+| PowerShell 7 exporter | PASS: 252 assertions on 7.6.6, including real filesystem symlink coverage |
+| Android/four-ABI JNI | FAIL at SDK installation: `Failed to find package 'platforms;android-37'`; native installation, JVM/lint and Android builds were skipped |
+
+This Android failure is package discovery, not an executed application test/build
+failure and not evidence of billing restrictions. A focused official-catalog check
+of [Google's repository metadata](https://dl.google.com/android/repository/repository2-3.xml)
+found zero `platforms;android-37` entries. It advertises stable
+`platforms;android-37.0` (API 37.0), `build-tools;37.0.0` and `ndk;30.0.16248370`.
+[Official sdkmanager documentation](https://developer.android.com/tools/sdkmanager)
+confirms channel 3 includes lower channels; enabling it cannot create a missing
+package identifier. The local command-line tools 23.0 channel-3 listing was also
+attempted, but its deprecated CLI handoff exited abnormally; that command is not
+counted as a successful availability check. The independently fetched official
+metadata is the evidence for the missing exact identifier.
+
+The integration instruction explicitly preserves `platforms;android-37`; therefore
+no package rename, SDK downgrade, unverified installer, fabricated success or
+ineffective channel-only patch is committed. No safe fix retaining that exact
+identifier was established. The workflow stays enabled and reports the failure.
+Future CI maintenance may evaluate the canonical 37.0 identifier under appropriate
+authorization; it is not silently substituted here.
+
+Fresh local actionlint and structural/security checks pass; five Bash scripts
+parse, English/Persian resources retain 50/50 parity, and no generated/sensitive
+files are included. The earlier 32 JVM, 26 instrumentation per target, 12 Android
+Rust per target, packaging/release/offline and 246-per-local-PowerShell results
+remain historical evidence at unchanged source, not fresh executions in this
+integration review. Existing manual/Windows-linker/16-KiB limitations remain.
+
+**Phase 1 remains ACCEPTED for integration under the authorized SDK-bootstrap
+exception.** The accepted local Android evidence and now-passing hosted Rust and
+exporter checks satisfy this milestone; hosted Android tests are not claimed as
+passing. This documentation commit is intended to be pushed with the feature
+branch and included in a normal non-fast-forward merge. Actual merge SHA, merged
+master smoke results and verified remote master SHA must be reported after those
+operations, rather than predicted here. The feature branch is retained; no tag,
+release, force-push or Phase 2 feature is part of integration.

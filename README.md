@@ -1,9 +1,11 @@
 # DeviceAtlas
 
 DeviceAtlas is an offline-first Android device-information and monitoring project.
-**Phase 0 implements only its engineering foundation**: a Compose Foundation screen,
-real Hilt injection, lifecycle-aware StateFlow, and a deterministic Rust/JNI mean
-calculation using test inputs `[2.0, 4.0, 6.0]`. No hardware data is read or simulated.
+**Phase 1 implements the application foundation**: an adaptive Material 3 shell,
+typed Navigation 3, English/Persian with runtime locale selection, persistent
+System/Light/Dark themes, and honest structural device/sensor/diagnostics pages.
+The verified Hilt → ViewModel → Rust/JNI mean using test inputs `[2.0, 4.0, 6.0]`
+remains available under Diagnostics. No hardware data is read or simulated.
 
 Application ID and namespace: `io.github.masoudd2159.deviceatlas`.
 Minimum SDK **26**; compile/target SDK **37**; version **1.0 / 1**.
@@ -86,16 +88,21 @@ See the report for the actual runtime-tested ABI/device matrix.
 ## Architecture and UI
 
 There is one Android module, `:app`, and one existing Rust crate, `native/`.
-No feature modules, repository layer, UseCases, navigation, database, or network
-framework is introduced.
+Package boundaries keep platform UI/preferences separate from the Rust-first
+computational capability. No empty feature modules, repository framework, database
+or network framework is introduced. See [architecture](docs/architecture/overview.md)
+and the [Phase 1 verification report](docs/phase-1-report.md).
 
 ```text
-MainActivity + DeviceAtlasApplication     Hilt/Compose entry points
-presentation/home                        Immutable state, ViewModel, Foundation screen
-presentation/theme                       Light/dark tokens, Dynamic Color (API 31+)
+MainActivity + DeviceAtlasApplication     Hilt/AppCompat/Compose, official app locales
+presentation/shell + navigation          Adaptive shell, typed saved per-tab stacks
+presentation/settings                    Application theme state and persistence actions
+presentation/home                        Entry-scoped Rust verification state and UI
+presentation/theme + components          Material 3 tokens, shared UI, previews
 foundation/NativeMath                     Typed math capability and result contract
 data/nativecore                          Explicit loading, validation, JNI gateway
-di                                       Math binding and Default dispatcher
+foundation/AppPreferences + data/preferences  Android-only theme persistence
+di                                       Capability bindings, Default/IO dispatchers
 native/src/lib.rs                        Pure Rust mean and numerical unit tests
 native/src/bridge.rs                      JNI array/status boundary
 ```
@@ -103,8 +110,12 @@ native/src/bridge.rs                      JNI array/status boundary
 `NativeMath` is the capability seam used by Hilt and isolated tests. The ViewModel
 owns UI state and coroutine lifetime; Compose uses `collectAsStateWithLifecycle`.
 Native calls execute on an injected Default dispatcher. Cancellation is propagated.
-The screen has heading/live-status semantics, scroll support, resource strings,
-fallback color schemes, and system-inset handling.
+Screens have heading/live-status/radio semantics, scroll support, complete
+English/Persian resources, fallback color schemes and system-inset handling.
+AppCompat owns locale persistence on API 26–32 and delegates to framework per-app
+language settings on API 33+. Navigation and Settings survive recreation; theme
+and language survive process restart. See [localization](docs/architecture/localization.md),
+[navigation](docs/architecture/navigation.md) and [design system](docs/architecture/design-system.md).
 
 ## JNI contract
 
@@ -162,16 +173,18 @@ hardware values are present.
 Backup is disabled. Legacy and Android 12+ cloud/device-transfer rules exclude
 all supported data domains. Android/OEM migration behavior can differ, so this is
 a conservative platform policy rather than a universal device-transfer guarantee.
-Phase 0 persists no user data.
+Phase 1 stores only non-sensitive appearance and application-locale preferences.
 
 Windows default host Rust tests currently need the missing MSVC linker. Actual
-Android execution passes on ARM64/API 33 and x86_64/API 26: 13 connected tests and
+Android execution passes on ARM64/API 33 and x86_64/API 26: 22 connected tests and
 12 standalone Rust tests on each runtime. Both use 4 KiB pages. A 16 KiB-page
 runtime remains unverified; APK/64-bit ELF alignment passes static checks.
 Upstream Gradle/protobuf tool warnings are documented without suppressions.
 
-See [the final verification report](docs/phase-0-final-verification.md) for current
-results, exact commands, compatibility evidence, and remaining work.
+See [the Phase 1 report](docs/phase-1-report.md) for current results, exact commands
+and remaining test-environment gaps. The
+[Phase 0 final verification report](docs/phase-0-final-verification.md) retains
+historical compatibility evidence.
 [docs/phase-0-report.md](docs/phase-0-report.md) and
 [docs/validation.md](docs/validation.md) retain the historical development record.
 
@@ -187,7 +200,7 @@ Run the helper from anywhere inside this repository with Windows PowerShell 5.1
 or PowerShell 7 and Git installed:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\export-codex-changes.ps1 -Base HEAD~1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\export-codex-changes.ps1 -Base master
 ```
 
 The example invocation assumes the repository root. Omit `-Base` to compare with

@@ -1,5 +1,8 @@
 # Foundation validation — 2026-10-22
 
+Current Phase 1 validation is recorded in [the Phase 1 report](phase-1-report.md).
+The Phase 0 development evidence below is preserved unchanged.
+
 Historical add-only foundation record. Current Phase 0 behavior and results are in
 [the final verification report](phase-0-final-verification.md), using NDK
 30.0.16248370 and Build Tools 37.0.0. Versions and results below describe the older

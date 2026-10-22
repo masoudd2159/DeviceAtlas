@@ -103,6 +103,7 @@ class SettingsViewModelTest {
         assertFalse(ThemePreference.LIGHT.isDark(true))
         ThemePreference.entries.forEach { assertEquals(it, ThemePreference.fromStorage(it.storageKey)) }
         assertEquals(AppLanguage.PERSIAN, AppLanguage.fromLanguageTag("fa-IR"))
+        assertEquals(AppLanguage.PERSIAN, AppLanguage.fromLanguageTag("fa,en"))
         assertEquals(AppLanguage.ENGLISH, AppLanguage.fromLanguageTag("en-US"))
         assertEquals(AppLanguage.SYSTEM, AppLanguage.fromLanguageTag(""))
         assertEquals(AppLanguage.SYSTEM, AppLanguage.fromLanguageTag("de"))

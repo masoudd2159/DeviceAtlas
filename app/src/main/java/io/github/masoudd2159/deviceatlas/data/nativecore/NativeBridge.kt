@@ -4,4 +4,5 @@ package io.github.masoudd2159.deviceatlas.data.nativecore
 internal object NativeBridge {
     // Nullable buffers allow integration tests to exercise native validation.
     external fun mean(values: DoubleArray?, output: DoubleArray?): Int
+    external fun processHardware(input: LongArray?, real: DoubleArray?, output: DoubleArray?): Int
 }

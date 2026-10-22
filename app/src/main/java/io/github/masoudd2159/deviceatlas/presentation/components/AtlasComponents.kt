@@ -142,7 +142,7 @@ private fun ComponentsPreview() {
             SectionHeader(stringResource(R.string.explore))
             AvailabilityMessage(stringResource(R.string.device_description))
             ActionRow(stringResource(R.string.language), stringResource(R.string.follow_system), {})
-            InformationCard { InformationRow(stringResource(R.string.computation_core), "Rust", technical = true) }
+            InformationCard { InformationRow(stringResource(R.string.computation_core), stringResource(R.string.rust), technical = true) }
             SelectionGroup { SettingsChoice(stringResource(R.string.follow_system), true, {}) }
         }
     }

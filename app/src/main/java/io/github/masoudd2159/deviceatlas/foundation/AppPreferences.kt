@@ -21,7 +21,7 @@ enum class AppLanguage(val languageTag: String) {
 
     companion object {
         fun fromLanguageTag(tag: String): AppLanguage = entries.firstOrNull {
-            it.languageTag == tag.substringBefore('-')
+            it.languageTag == tag.substringBefore(',').substringBefore('-')
         } ?: SYSTEM
     }
 }

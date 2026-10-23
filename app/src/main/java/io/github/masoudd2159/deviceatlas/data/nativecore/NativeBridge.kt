@@ -5,4 +5,5 @@ internal object NativeBridge {
     // Nullable buffers allow integration tests to exercise native validation.
     external fun mean(values: DoubleArray?, output: DoubleArray?): Int
     external fun processHardware(input: LongArray?, real: DoubleArray?, output: DoubleArray?): Int
+    external fun processMonitoring(input: LongArray?, real: DoubleArray?, output: DoubleArray?): Int
 }

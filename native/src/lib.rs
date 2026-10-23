@@ -1,6 +1,7 @@
 //! Pure mathematics and a small, synchronous JNI boundary.
 mod bridge;
 pub mod hardware;
+pub mod monitoring;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum MeanError {

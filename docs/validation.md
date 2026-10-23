@@ -1,5 +1,26 @@
 # Validation evidence
 
+## Phase 3 final review corrections — 2026-10-23
+
+The [final correction section](phase-3-report.md#phase-3--final-code-review-corrections-and-integration-readiness)
+supersedes the initial local delivery record below. Fresh Debug JVM execution:
+79 tests, zero failures/errors/skips. Debug/release lint and builds, R8/AAB/full
+build and offline assembly pass. Native source/protocols, manifest, toolchain and
+287 paired resource keys remain unchanged. Exact final device/CI/integration
+evidence is recorded in the correction section and final delivery report. Earlier
+results below retain their historical meaning and are not claimed as reruns.
+
+## Phase 3 local acceptance — 2026-10-23
+
+See [Phase 3 report](phase-3-report.md) for commands, unsuccessful attempts and limits.
+Latest evidence: 69 debug JVM tests; 53 direct instrumentation tests on each API 26
+x86_64/API 33 ARM64; 23 Rust tests executed on each runtime; debug/minified release/
+AAB/full/offline builds and lint pass. No hosted Phase 3 run or Gradle-connected
+instrumentation success is claimed. Windows host Rust execution remains blocked
+by missing MSVC link.exe. Static 64-bit 16 KiB ELF/APK ZIP alignment passes; genuine
+16 KiB execution was not run. Normal minified monitoring and legacy mean succeeded
+on both devices. Historical Phase 0/1/2 evidence below remains unchanged.
+
 ## Current Phase 2 acceptance — 2026-10-23
 
 **ACCEPTED — ready for integration**, with documented noncritical tooling and

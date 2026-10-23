@@ -6,4 +6,5 @@ internal object NativeBridge {
     external fun mean(values: DoubleArray?, output: DoubleArray?): Int
     external fun processHardware(input: LongArray?, real: DoubleArray?, output: DoubleArray?): Int
     external fun processMonitoring(input: LongArray?, real: DoubleArray?, output: DoubleArray?): Int
+    external fun processBenchmark(input: LongArray?, real: DoubleArray?, output: DoubleArray?): Int
 }

@@ -13,6 +13,107 @@ fn contain_panic(action: impl FnOnce() -> jint) -> jint {
     catch_unwind(AssertUnwindSafe(action)).unwrap_or(PANIC)
 }
 
+/// Bounded benchmark v1. Six longs, zero to six doubles, ten result doubles.
+/// # Safety
+/// JVM supplies live array handles on this thread and a valid JNI environment.
+#[unsafe(no_mangle)]
+pub unsafe extern "system" fn Java_io_github_masoudd2159_deviceatlas_data_nativecore_NativeBridge_processBenchmark(
+    env: *mut JNIEnv,
+    _receiver: jobject,
+    input: jlongArray,
+    real: jdoubleArray,
+    output: jdoubleArray,
+) -> jint {
+    contain_panic(|| unsafe { invoke_benchmark(env, input, real, output) })
+}
+
+unsafe fn invoke_benchmark(
+    env: *mut JNIEnv,
+    input: jlongArray,
+    real: jdoubleArray,
+    output: jdoubleArray,
+) -> jint {
+    if env.is_null() || input.is_null() || real.is_null() || output.is_null() {
+        return INVALID_BUFFER;
+    }
+    let table = unsafe { *env };
+    if table.is_null() {
+        return NATIVE_FAILURE;
+    }
+    let table = unsafe { &*table };
+    let (
+        Some(length),
+        Some(read_long),
+        Some(read_double),
+        Some(write),
+        Some(exception),
+        Some(clear),
+    ) = (
+        table.GetArrayLength,
+        table.GetLongArrayRegion,
+        table.GetDoubleArrayRegion,
+        table.SetDoubleArrayRegion,
+        table.ExceptionCheck,
+        table.ExceptionClear,
+    )
+    else {
+        return NATIVE_FAILURE;
+    };
+    let failed = || unsafe {
+        if exception(env) != 0 {
+            clear(env);
+            true
+        } else {
+            false
+        }
+    };
+    // Preserve pending-exception semantics: never execute workload after failure.
+    if failed() {
+        return NATIVE_FAILURE;
+    }
+    for (array, expected) in [(input, 6), (output, 10)] {
+        let size = unsafe { length(env, array) };
+        if failed() {
+            return NATIVE_FAILURE;
+        }
+        if size != expected {
+            return INVALID_BUFFER;
+        }
+    }
+    let mut header = [0_i64; 6];
+    unsafe { read_long(env, input, 0, 6, header.as_mut_ptr()) };
+    if failed() {
+        return NATIVE_FAILURE;
+    }
+    let expected = match crate::benchmark::shape(&header) {
+        Ok(size) => size,
+        Err(code) => return code,
+    };
+    let size = unsafe { length(env, real) };
+    if failed() {
+        return NATIVE_FAILURE;
+    }
+    if size != expected as i32 {
+        return INVALID_BUFFER;
+    }
+    let mut values = [0.0_f64; 6];
+    if expected > 0 {
+        unsafe { read_double(env, real, 0, size, values.as_mut_ptr()) };
+        if failed() {
+            return NATIVE_FAILURE;
+        }
+    }
+    let result = match crate::benchmark::process(&header, &values[..expected]) {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
+    if result.iter().any(|v| !v.is_finite()) {
+        return NATIVE_FAILURE;
+    }
+    unsafe { write(env, output, 0, 10, result.as_ptr()) };
+    if failed() { NATIVE_FAILURE } else { 0 }
+}
+
 /// Monitoring v1. Shapes are validated from a three-long header before copying.
 /// # Safety
 /// JVM supplies live array handles and this thread's JNI environment.
@@ -298,6 +399,10 @@ mod tests {
             INVALID_BUFFER
         );
         assert_eq!(unsafe { invoke(env, null, null) }, INVALID_BUFFER);
+        assert_eq!(
+            unsafe { invoke_benchmark(env, null, null, null) },
+            INVALID_BUFFER
+        );
         assert_eq!(
             unsafe { invoke_monitoring(env, null, null, null) },
             INVALID_BUFFER

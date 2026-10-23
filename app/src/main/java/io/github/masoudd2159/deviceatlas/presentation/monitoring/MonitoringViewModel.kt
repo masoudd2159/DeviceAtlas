@@ -10,5 +10,5 @@ import javax.inject.Inject
 class MonitoringViewModel @Inject constructor(source: MonitoringSource, processor: MonitoringProcessor, clock: MonotonicClock) : ViewModel() {
     val session = MonitoringSession(source, processor, clock, viewModelScope)
     val uiState = session.state
-    override fun onCleared() { session.stop(StopReason.DESTROYED) }
+    override fun onCleared() { session.close() }
 }

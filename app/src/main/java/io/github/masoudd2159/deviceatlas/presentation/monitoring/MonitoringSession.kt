@@ -7,6 +7,7 @@ import io.github.masoudd2159.deviceatlas.foundation.monitoring.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlin.coroutines.EmptyCoroutineContext
 
 /** Main-confined state machine. The owning ViewModel supplies its structured scope.
  * A canceled job remains owned until it exits, preventing overlap on rapid Stop/Start. */
@@ -14,23 +15,27 @@ import kotlinx.coroutines.flow.asStateFlow
 class MonitoringSession(
     private val source: MonitoringSource, private val processor: MonitoringProcessor,
     private val clock: MonotonicClock, private val scope: CoroutineScope,
+    private val ownerDispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
 ) {
     private val mutable = MutableStateFlow(MonitoringState())
     val state = mutable.asStateFlow()
     private var job: Job? = null
     private var eligible = false
     private var generation = 0L
+    private var startedAtNanos: Long? = null
+    private var closed = false
 
     fun setEligibility(visible: Boolean, foreground: Boolean, reason: StopReason = StopReason.BACKGROUND) {
-        eligible = visible && foreground
+        eligible = !closed && visible && foreground
         if (!eligible) stop(if (!visible) StopReason.HIDDEN else reason)
         publishEligibility()
     }
 
     fun start() {
-        if (!eligible || job != null) return
+        if (!eligible || job != null || !scope.isActive) return
         val token = ++generation
         val started = clock.nanos()
+        startedAtNanos = started
         mutable.value = MonitoringState(status = MonitoringStatus.Running)
         val created = scope.launch(start = CoroutineStart.LAZY) {
             try {
@@ -86,10 +91,18 @@ class MonitoringSession(
         // A canceled coroutine may never enter its body/finally. Completion also
         // releases ownership for Start→Stop/Reset before the first dispatch.
         created.invokeOnCompletion {
-            if (job === created) {
-                job = null
-                publishEligibility()
-            }
+            // Completion has no guaranteed execution context. Post a finite
+            // Runnable, not a launch in the possibly already canceled owner scope.
+            ownerDispatcher.dispatch(EmptyCoroutineContext, Runnable {
+                if (job === created) {
+                    if (mutable.value.status is MonitoringStatus.Running) {
+                        finish(MonitoringStatus.Stopped(StopReason.CANCELED), started)
+                    }
+                    job = null
+                    startedAtNanos = null
+                    publishEligibility()
+                }
+            })
         }
         created.start()
     }
@@ -97,19 +110,35 @@ class MonitoringSession(
     fun stop(reason: StopReason = StopReason.USER) {
         if (mutable.value.status is MonitoringStatus.Running) {
             ++generation
+            mutable.value = mutable.value.copy(status = MonitoringStatus.Stopped(reason),
+                elapsedMillis = startedAtNanos?.let(::elapsed) ?: mutable.value.elapsedMillis)
             job?.cancel()
-            mutable.value = mutable.value.copy(status = MonitoringStatus.Stopped(reason))
         }
         publishEligibility()
     }
 
     fun reset() {
         stop()
-        mutable.value = MonitoringState(canStart = eligible && job == null, cleared = true)
+        mutable.value = MonitoringState(canStart = canStart(), cleared = true)
     }
 
-    private fun elapsed(started: Long): Long = ((clock.nanos() - started).coerceAtLeast(0) / 1_000_000).coerceAtMost(SESSION_LIMIT_MS)
+    /** Permanent owner disposal; retiring work remains owned until its completion handoff. */
+    fun close() {
+        closed = true
+        eligible = false
+        stop(StopReason.DESTROYED)
+    }
+
+    private fun elapsed(started: Long): Long {
+        val now = clock.nanos()
+        val published = mutable.value.elapsedMillis.coerceIn(0, SESSION_LIMIT_MS)
+        // Nonnegative, ordered operands make subtraction overflow-free. An invalid
+        // clock cannot erase already published duration or produce a negative one.
+        return if (started >= 0 && now >= started) ((now - started) / 1_000_000).coerceIn(published, SESSION_LIMIT_MS)
+        else published
+    }
     private fun finish(status: MonitoringStatus, started: Long) { mutable.value = mutable.value.copy(status = status, elapsedMillis = elapsed(started)) }
-    private fun publishEligibility() { mutable.value = mutable.value.copy(canStart = eligible && job == null) }
+    private fun canStart() = !closed && eligible && job == null && scope.isActive
+    private fun publishEligibility() { mutable.value = mutable.value.copy(canStart = canStart()) }
     private class SampleFailure(val reason: UnavailableReason) : RuntimeException()
 }

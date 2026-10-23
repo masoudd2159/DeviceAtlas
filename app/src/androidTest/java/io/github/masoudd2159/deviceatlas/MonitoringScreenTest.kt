@@ -13,6 +13,12 @@ class MonitoringScreenTest {
         compose.waitUntil(15_000) { compose.onAllNodesWithTag("nav_DIAGNOSTICS").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("nav_DIAGNOSTICS").performClick()
         compose.onNodeWithTag("monitor_status").assertTextEquals(compose.activity.getString(R.string.monitor_idle))
+        repeat(3) {
+            compose.onNodeWithTag("monitor_start").performClick()
+            compose.onNodeWithTag("monitor_stop").performClick()
+            compose.onNodeWithTag("monitor_status").assertTextEquals(compose.activity.getString(R.string.monitor_stopped))
+            compose.onNodeWithTag("monitor_start").assertIsEnabled()
+        }
         compose.onNodeWithTag("monitor_start").performClick()
         compose.waitUntil(15_000) { compose.onAllNodesWithText(compose.activity.getString(R.string.monitor_current)).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("monitor_stop").performClick()

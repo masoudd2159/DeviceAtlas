@@ -18,12 +18,14 @@ class ExampleInstrumentedTest {
         assertEquals("io.github.masoudd2159.deviceatlas", appContext.packageName)
     }
 
-    @Test fun packagedApplicationHasNoHardwareOrNetworkPermissions() {
+    @Test fun packagedApplicationAllowsOnlyNormalVibrationAndPrivateReceiverPermission() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val info = context.packageManager.getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)
-        assertTrue(info.requestedPermissions.orEmpty().all {
-            it == "${context.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
-        })
+        assertEquals(setOf(android.Manifest.permission.VIBRATE,
+            "${context.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"), info.requestedPermissions.orEmpty().toSet())
+        val vibration = context.packageManager.getPermissionInfo(android.Manifest.permission.VIBRATE, 0)
+        assertEquals(android.content.pm.PermissionInfo.PROTECTION_NORMAL,
+            vibration.protectionLevel and android.content.pm.PermissionInfo.PROTECTION_MASK_BASE)
     }
 
     @Test fun packagedApplicationDisablesBackup() {

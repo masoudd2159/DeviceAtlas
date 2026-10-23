@@ -56,9 +56,17 @@ public final class BenchmarkReleaseInstrumentation extends Instrumentation {
             double[] summaries = new double[50];
             check(Integer.valueOf(0).equals(monitoring.invoke(receiver, new long[]{1, 2, 0}, new double[0], summaries)),
                     "Legacy monitoring failed");
+            Method sensor = bridge.getDeclaredMethod("processSensor", long[].class, double[].class, double[].class);
+            double[] sensorSummary = new double[7];
+            check(Integer.valueOf(0).equals(sensor.invoke(receiver, new long[]{1, 1, 3, 1},
+                    new double[]{3, 4, 12}, sensorSummary)) && sensorSummary[5] == 13,
+                    "Sensor vector analysis failed");
+            check(Integer.valueOf(0).equals(sensor.invoke(receiver, new long[]{1, 1, 1, 2},
+                    new double[]{0, 10}, sensorSummary)) && sensorSummary[4] == 5,
+                    "Sensor scalar analysis failed");
             result.putInt("tests", 1);
             result.putInt("failures", 0);
-            result.putString("stream", "OK (1 framework release probe): three real workloads and all legacy JNI entry points\n");
+            result.putString("stream", "OK (1 framework release probe): sensor analysis, three real workloads and all legacy JNI entry points\n");
             finish(Activity.RESULT_OK, result);
         } catch (Throwable failure) {
             result.putInt("tests", 1);

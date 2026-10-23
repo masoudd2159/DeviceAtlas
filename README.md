@@ -16,6 +16,15 @@ See the [Phase 2 engineering report](docs/phase-2-report.md),
 [field/source compatibility matrix](docs/architecture/hardware-collection.md), and
 [native protocol](docs/architecture/native-hardware-processing.md).
 
+**Phase 2 is ACCEPTED — ready for integration**, with documented validation
+limits. Reviewed baseline `6a1abf1ba138ffc70fe48fdb43284068659f0147` has confirmed
+successful [hosted CI](https://github.com/masoudd2159/DeviceAtlas/actions/runs/39855515251)
+across Android/four-ABI JNI, Linux Rust and both PowerShell jobs. Prior local
+review passed 51 JVM tests and 48 instrumented tests on each available runtime;
+hosted Android CI does not execute instrumentation. See the report's
+[current acceptance](docs/phase-2-report.md#current-acceptance--2026-10-23) for
+evidence provenance, installer fallback and remaining coverage limits.
+
 Application ID and namespace: `io.github.masoudd2159.deviceatlas`.
 Minimum SDK **26**; compile/target SDK **37**; version **1.0 / 1**.
 
@@ -181,6 +190,13 @@ calls, actual library-loading failure, application identity, permissions, and
 backup configuration. Kotlin gateway tests use injected call/load functions and
 **do not establish JNI execution**. Rust tests exercise math independently of JNI.
 
+In the observed API 26 environment, Gradle's managed installer can report
+`INSTALL_FAILED_ALREADY_EXISTS` and exit 0 without running tests. The verified
+alternative is explicit `adb -s <serial> install -r` for both APKs followed by
+direct AndroidJUnitRunner execution. Require a nonzero test count and complete
+success; a zero-test or incomplete run fails validation. Exact commands and
+reported device counts are in the [current Phase 2 report](docs/phase-2-report.md#bounded-connected-test-investigation-and-fallback).
+
 ## Privacy, backups, and limitations
 
 The app requests no INTERNET, hardware, identifier, analytics, or monitoring
@@ -281,21 +297,22 @@ installation because `platforms;android-37` could not be found; its tests/builds
 did not run. The official catalog publishes `platforms;android-37.0`, not that exact
 required identifier. Phase 2 changes only that installation argument to the
 verified canonical `platforms;android-37.0`. Gradle compile/target SDK and all pinned
-versions stay unchanged. Updated actionlint passes locally; no new hosted run has
-been triggered because no push is authorized.
+versions stay unchanged. This paragraph preserves the Phase 1 SDK failure history;
+the successful Phase 2 run linked above verifies the corrected bootstrap.
 See the [integration note](docs/phase-1-report.md#phase-1-integration-readiness-and-hosted-sdk-evidence).
 
-Current review evidence: **32 JVM tests, 26 connected tests per runtime, 12 Rust
+Historical Phase 1 review evidence: **32 JVM tests, 26 connected tests per runtime, 12 Rust
 tests per runtime, and 246 exporter assertions per PowerShell edition**. The
 Windows MSVC linker gap remains separate from the proposed Linux CI host job.
 These are prior verification results, not newly rerun suites. See
 [final acceptance](docs/phase-1-report.md#final-phase-1-closure-and-phase-2-readiness)
-for the current decision and fresh checks; the earlier review closure preserves
+for that phase's decision and checks; the earlier review closure preserves
 commands, manual gaps and the killed-process/existing-task restoration result.
 
 **Phase 1 history is preserved in its report. Phase 2 implementation and current
 verification evidence are in [the Phase 2 report](docs/phase-2-report.md).** Hosted
-CI, a real 16 KiB runtime and remaining manual QA gaps are reported explicitly.
+CI passed for the reviewed SHA. Windows MSVC host linking, a genuine 16 KiB
+runtime and the remaining manual/OEM coverage gaps remain documented limitations.
 
 An installed debug app on an explicitly selected disposable emulator can run the
 additional restoration check (adb must be on PATH):

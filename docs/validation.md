@@ -1,10 +1,31 @@
-# Foundation validation — 2026-10-22
+# Validation evidence
 
-Current Phase 2 checks, actual runtime results and remaining limitations are in
-[the Phase 2 report](phase-2-report.md). Historical evidence below is unchanged.
+## Current Phase 2 acceptance — 2026-10-23
 
-Current Phase 1 validation is recorded in [the Phase 1 report](phase-1-report.md).
-Current correction evidence is in its [review-closure section](phase-1-report.md#phase-1-review-closure).
+**ACCEPTED — ready for integration**, with documented noncritical tooling and
+coverage limits. Reviewed SHA: `6a1abf1ba138ffc70fe48fdb43284068659f0147`.
+Hosted [run 39855515251](https://github.com/masoudd2159/DeviceAtlas/actions/runs/39855515251)
+is confirmed SUCCESS for that SHA: Android/four-ABI JNI, Linux Rust host checks
+(19 tests), Windows PowerShell and PowerShell 7 exporters (252 assertions each).
+Hosted Android verification builds/tests/lints the project but runs no device
+instrumentation. Prior local review evidence is 51 JVM tests and 48 direct-run
+instrumentation tests on each API 26 x86_64 and API 33 ARM64 runtime, all passing.
+No heavy suites were rerun solely for closure documentation.
+
+The Gradle connected installer can fail with `INSTALL_FAILED_ALREADY_EXISTS`
+while returning exit 0 and executing zero tests. Use the explicit selected-device
+replacement-install/AndroidJUnitRunner path and require a positive test count,
+complete runner success and no failures; see the
+[current acceptance and fallback](phase-2-report.md#current-acceptance--2026-10-23).
+Windows MSVC host-linker absence, genuine 16 KiB runtime testing, complete manual
+accessibility/foldable/external-display QA and broader OEM/API coverage remain
+explicit limits. Final merge/smoke/remote CI evidence belongs to the closure
+delivery report; the cited run establishes the reviewed baseline only.
+
+## Historical foundation validation — 2026-10-22
+
+Phase 1 validation is recorded in [the Phase 1 report](phase-1-report.md).
+Its correction evidence is in the [review-closure section](phase-1-report.md#phase-1-review-closure).
 The Phase 0 development evidence below is preserved unchanged.
 
 Historical add-only foundation record. Current Phase 0 behavior and results are in

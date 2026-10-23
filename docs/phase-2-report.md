@@ -1,4 +1,94 @@
-# DeviceAtlas Phase 2 engineering report — 2026-10-22
+# DeviceAtlas Phase 2 engineering report
+
+## Current acceptance — 2026-10-23
+
+**Phase 2: ACCEPTED — ready for integration**, with the noncritical validation
+limitations below. Reviewed implementation and correction baseline:
+`6a1abf1ba138ffc70fe48fdb43284068659f0147`.
+
+Hosted [run 39855515251](https://github.com/masoudd2159/DeviceAtlas/actions/runs/39855515251)
+is **SUCCESS**, checked on GitHub for that exact SHA. All required jobs passed:
+
+| Job | Result |
+|---|---|
+| Android and four-ABI JNI builds | SUCCESS |
+| Rust host checks | SUCCESS; 19 Linux host tests |
+| Export helper (powershell) | SUCCESS; 252 assertions |
+| Export helper (pwsh) | SUCCESS; 252 assertions |
+
+The Android job verifies JVM tests, lint, debug, minified release and AAB builds;
+it does **not** run emulator/device instrumentation. The preceding local review
+executed 51 JVM tests, 48 instrumentation tests on each API 26 x86_64 and API 33
+ARM64 runtime, and 12 focused Compose regressions. Those device results remain
+applicable to unchanged application code; they are not fresh closure executions.
+The original 19 native tests per Android runtime are earlier unchanged-native
+evidence, separate from the successful Linux host job.
+
+This closure changes documentation only. The focused review confirmed the four
+corrections: exclusive load/failure/retry states with retained snapshot timestamp,
+inventory-scoped sensor expansion, production-sanitizer OEM assertions with
+locale/theme isolation, and separate successful-empty/unavailable inventory
+diagnostics. Kotlin acquisition, Rust calculations, bounded JNI, lifecycle and
+session-only snapshot ownership remain intact. No source or Gradle workaround is
+needed. The user has now authorized a normal non-fast-forward merge and master
+push, superseding the earlier task's feature-only authorization. Final feature
+SHA, merge parents, smoke results, remote master SHA and subsequent CI runs are
+recorded in the delivery report, without a self-referential evidence commit.
+
+### Bounded connected-test investigation and fallback
+
+The existing single controlled reproduction in review section H is sufficient:
+the selected API 26 emulator already had the application installed; the managed
+installer rejected replacement with `INSTALL_FAILED_ALREADY_EXISTS`, executed
+zero tests, and Gradle returned exit 0. Installed test-engine 1.0.1 bytecode gates
+replacement flags on `forceReinstall`; the complete configuration/root cause and
+a safe public configuration correction remain unproven. Closure inspection
+confirmed the configured/installed AndroidJUnitRunner targets the correct app,
+the app/test package names differ as expected, and both installed APKs verify
+with the same Android debug signing certificate. Application version is 1.0/1;
+the separate test package has version code 0. These observations support the
+installation diagnosis; they do not establish an upstream fix. No additional
+connected attempt, uninstall, data clearing, pin change or internal-API override
+was performed. Existing direct-run XML reports 48 tests and zero failures,
+errors or skips on each selected runtime. A false-success Gradle exit is not test
+evidence and is not substituted for those reports.
+
+For a deliberately selected test device, build the APKs, then use replacement
+installation and the actual runner (replace `<serial>` with the chosen device):
+
+```text
+gradlew.bat :app:assembleDebug :app:assembleDebugAndroidTest --max-workers=2 --console=plain
+adb -s <serial> install -r app/build/outputs/apk/debug/app-debug.apk
+adb -s <serial> install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb -s <serial> shell am instrument -w -r io.github.masoudd2159.deviceatlas.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Stop on either installation failure. Preserve raw runner output; require a
+positive executed-test count, complete per-test events, a matching final
+`OK (N tests)` result and successful runner completion. Treat **zero tests**,
+missing/truncated completion, runner/transport errors or any test failure as
+failure, regardless of adb/Gradle exit code. Inspect/report failures, errors and
+skips explicitly; XML converted locally from runner events must be identified
+as such. This equivalent comprehensive device execution makes the managed
+installer anomaly a documented noncritical tooling limitation, not a merge blocker.
+
+### Remaining validation limits
+
+Windows Rust host execution remains blocked by missing MSVC `link.exe`; Linux
+host checks passed. Genuine 16 KiB-page runtime execution, complete spoken
+TalkBack/keyboard coverage, physical foldable/external-display coverage and the
+full OEM/API matrix remain untested. Static 16 KiB ELF/ZIP checks passed but do
+not prove runtime coverage. Public OEM fields can be unavailable by design.
+Lint has zero errors and two existing warnings (pre-33 locale configuration and
+SharedPreferences KTX style). No checks were suppressed. Phase 3 is not started.
+
+The sections below preserve the original implementation and correction-time
+records. Their statements about pending CI, authorization or older test totals
+describe those earlier stages; this current acceptance section supersedes them.
+
+---
+
+# Original implementation record — 2026-10-22
 
 ## A. Executive summary
 

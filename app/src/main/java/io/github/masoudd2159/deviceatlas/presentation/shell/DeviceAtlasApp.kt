@@ -5,7 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -33,6 +33,8 @@ import io.github.masoudd2159.deviceatlas.foundation.monitoring.MonitoringState
 import io.github.masoudd2159.deviceatlas.foundation.monitoring.StopReason
 import io.github.masoudd2159.deviceatlas.presentation.benchmark.*
 import io.github.masoudd2159.deviceatlas.foundation.benchmark.*
+import io.github.masoudd2159.deviceatlas.presentation.interactive.*
+import io.github.masoudd2159.deviceatlas.foundation.interactive.*
 
 @Composable
 fun DeviceAtlasApp(
@@ -46,10 +48,13 @@ fun DeviceAtlasApp(
     refreshHardware: () -> Unit = {},
     monitoring: MonitoringSession? = null,
     benchmark: BenchmarkSession? = null,
+    interactive: InteractiveSession? = null,
 ) {
-    var showBenchmark by rememberSaveable { mutableStateOf(false) }
-    if (monitoring != null) MonitoringVisibility(monitoring, navigation.current == Destination.DIAGNOSTICS && !showBenchmark)
-    if (benchmark != null) BenchmarkVisibility(benchmark, navigation.current == Destination.DIAGNOSTICS && showBenchmark)
+    var diagnosticsPanel by rememberSaveable { mutableIntStateOf(0) }
+    if (monitoring != null) MonitoringVisibility(monitoring, navigation.current == Destination.DIAGNOSTICS && diagnosticsPanel == 0)
+    if (benchmark != null) BenchmarkVisibility(benchmark, navigation.current == Destination.DIAGNOSTICS && diagnosticsPanel == 1)
+    if (interactive != null) InteractiveVisibility(interactive, navigation.current == Destination.DIAGNOSTICS && diagnosticsPanel == 2)
+    val interactiveState = interactive?.state?.collectAsStateWithLifecycle()?.value ?: InteractiveState()
     val benchmarkState = benchmark?.state?.collectAsStateWithLifecycle()?.value ?: BenchmarkState()
     val monitoringState = monitoring?.state?.collectAsStateWithLifecycle()?.value ?: MonitoringState()
     val informationPage = navigation.current in listOf(Destination.OVERVIEW, Destination.DEVICE, Destination.SENSORS, Destination.DIAGNOSTICS)
@@ -62,6 +67,7 @@ fun DeviceAtlasApp(
                 onClick = {
                     if (destination != Destination.DIAGNOSTICS) monitoring?.stop(StopReason.HIDDEN)
                     if (destination != Destination.DIAGNOSTICS) benchmark?.stop(BenchmarkStop.HIDDEN)
+                    if (destination != Destination.DIAGNOSTICS) interactive?.stop(InteractiveStop.HIDDEN)
                     navigation.navigate(destination)
                 },
                 icon = { Icon(painterResource(destination.icon), contentDescription = null) },
@@ -73,7 +79,7 @@ fun DeviceAtlasApp(
         Scaffold(topBar = {
             AtlasTopBar(
                 title = stringResource(if (navigation.current == Destination.OVERVIEW) R.string.app_name else navigation.current.title),
-                onBack = if (navigation.current !in Destination.topLevel) ({ monitoring?.stop(StopReason.HIDDEN); benchmark?.stop(BenchmarkStop.HIDDEN); navigation.back() }) else null,
+                onBack = if (navigation.current !in Destination.topLevel) ({ monitoring?.stop(StopReason.HIDDEN); benchmark?.stop(BenchmarkStop.HIDDEN); interactive?.stop(InteractiveStop.HIDDEN); navigation.back() }) else null,
             )
         }) { padding ->
             NavDisplay(
@@ -88,12 +94,16 @@ fun DeviceAtlasApp(
                                 val model: HomeViewModel = hiltViewModel()
                                 ResponsiveContent {
                                     FlowRow {
-                                        FilterChip(selected = !showBenchmark, onClick = { benchmark?.stop(BenchmarkStop.HIDDEN); showBenchmark = false },
+                                        FilterChip(selected = diagnosticsPanel == 0, onClick = { benchmark?.stop(BenchmarkStop.HIDDEN); interactive?.stop(InteractiveStop.HIDDEN); diagnosticsPanel = 0 },
                                             label = { Text(stringResource(R.string.monitor_title)) }, modifier = Modifier.testTag("diagnostics_monitor"))
-                                        FilterChip(selected = showBenchmark, onClick = { monitoring?.stop(StopReason.HIDDEN); showBenchmark = true },
+                                        FilterChip(selected = diagnosticsPanel == 1, onClick = { monitoring?.stop(StopReason.HIDDEN); interactive?.stop(InteractiveStop.HIDDEN); diagnosticsPanel = 1 },
                                             label = { Text(stringResource(R.string.bench_title)) }, modifier = Modifier.testTag("diagnostics_benchmark"))
+                                        FilterChip(selected = diagnosticsPanel == 2, onClick = { monitoring?.stop(StopReason.HIDDEN); benchmark?.stop(BenchmarkStop.HIDDEN); diagnosticsPanel = 2 },
+                                            label = { Text(stringResource(R.string.interactive_title)) }, modifier = Modifier.testTag("diagnostics_interactive"))
                                     }
-                                    if (showBenchmark) {
+                                    if (diagnosticsPanel == 2) {
+                                        InteractivePanel(interactiveState, interactive)
+                                    } else if (diagnosticsPanel == 1) {
                                         BenchmarkPanel(benchmarkState, monitoringState.status is io.github.masoudd2159.deviceatlas.foundation.monitoring.MonitoringStatus.Running,
                                             { benchmark?.start() }, { benchmark?.stop() }, { benchmark?.reset() })
                                     } else {
@@ -113,7 +123,7 @@ fun DeviceAtlasApp(
                         }
                     }
                 }),
-                onBack = { monitoring?.stop(StopReason.HIDDEN); benchmark?.stop(BenchmarkStop.HIDDEN); navigation.back() },
+                onBack = { monitoring?.stop(StopReason.HIDDEN); benchmark?.stop(BenchmarkStop.HIDDEN); interactive?.stop(InteractiveStop.HIDDEN); navigation.back() },
             )
         }
     }

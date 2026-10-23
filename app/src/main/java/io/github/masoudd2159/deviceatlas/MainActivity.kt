@@ -24,6 +24,7 @@ import io.github.masoudd2159.deviceatlas.presentation.theme.DeviceAtlasTheme
 import io.github.masoudd2159.deviceatlas.presentation.hardware.HardwareViewModel
 import io.github.masoudd2159.deviceatlas.presentation.monitoring.MonitoringViewModel
 import io.github.masoudd2159.deviceatlas.presentation.benchmark.BenchmarkViewModel
+import io.github.masoudd2159.deviceatlas.presentation.interactive.InteractiveViewModel
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
@@ -31,6 +32,7 @@ class MainActivity : AppCompatActivity() {
     private val hardwareModel: HardwareViewModel by viewModels()
     private val monitoringModel: MonitoringViewModel by viewModels()
     private val benchmarkModel: BenchmarkViewModel by viewModels()
+    private val interactiveModel: InteractiveViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,6 +60,7 @@ class MainActivity : AppCompatActivity() {
                         refreshHardware = hardwareModel::refresh,
                         monitoring = monitoringModel.session,
                         benchmark = benchmarkModel.session,
+                        interactive = interactiveModel.session,
                     )
                 } else {
                     Surface(color = MaterialTheme.colorScheme.background) { Text(stringResource(R.string.app_starting)) }

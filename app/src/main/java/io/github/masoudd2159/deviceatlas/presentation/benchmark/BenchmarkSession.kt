@@ -36,7 +36,7 @@ class BenchmarkSession(
     }
     fun start() {
         if (!eligible || closed || job != null || !scope.isActive) return
-        val lease = coordinator.reserveBenchmark() ?: return
+        val lease = coordinator.reserveBenchmark { stop(BenchmarkStop.HIDDEN) } ?: return
         val token = ++generation
         started = clock.nanos()
         clearPending = false

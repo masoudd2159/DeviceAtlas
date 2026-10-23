@@ -1,5 +1,124 @@
 # Phase 3 engineering delivery — 2026-10-23
 
+## Phase 3 — Final Code Review Corrections and Integration Readiness
+
+Reviewed baseline: `b0d4b6302964403092616b15d24c06f147f850fe`, with all three original
+Phase 3 commits intact. Local/remote master were
+`a9689f73df76516d6be1ee7746cb8b5c94282a3f`; feature matched its remote and the tree
+was clean. GitHub run [39927309528](https://github.com/masoudd2159/DeviceAtlas/actions/runs/39927309528)
+was independently verified as SUCCESS for the reviewed SHA, with Android/four-ABI,
+Linux Rust and both PowerShell jobs successful. It is baseline evidence only.
+
+Correction source commit: `420ea983158a9bd2ae821802b9c554bcb72ff9f4`
+(`fix(monitoring): freeze stop time and confine completion cleanup`). Original
+commits were not amended, rebased or squashed.
+
+### Elapsed-time correction
+
+The old Stop changed status without measuring time since the monotonic start.
+New regression assertions reproduced four stale-duration failures before the fix.
+The session now retains its start timestamp and freezes elapsed milliseconds at
+the Running→Stopped transition, before cancellation. This covers USER, HIDDEN,
+BACKGROUND, DESTROYED and explicit cancellation paths; normal limit/error completion
+uses the same safe elapsed calculation. Repeated Stop does not extend time, Reset
+returns it to zero, and a fresh Start establishes a new baseline. Generation checks
+prevent late samples or completion from changing frozen time/results.
+
+Ordered nonnegative nanosecond operands make subtraction overflow-free. Invalid
+or regressed clocks preserve already published duration; forward jumps are capped
+at 600,000 ms. A 3.5-second stop freezes 3,500 ms even between samples. The existing
+UI presents whole seconds. No second timer, polling, persistence or sampling
+schedule change was introduced.
+
+### Completion threading and owner destruction
+
+The official [Job.invokeOnCompletion contract](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-job/invoke-on-completion.html)
+does not guarantee callback context and permits concurrent invocation. Directly
+reading job ownership or publishing StateFlow there was therefore unsafe for the
+main-confined session, even when ordinary Android runs appeared to finish on Main.
+
+The callback now only posts a finite Runnable through an injectable owner dispatcher,
+`Dispatchers.Main.immediate` in production. All ownership reads/writes, identity
+checks, start-time release and StateFlow publication occur inside that owner task.
+It uses [dispatch with EmptyCoroutineContext](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-coroutine-dispatcher/dispatch.html),
+not a coroutine launch in an already canceled ViewModel scope. Consequently cleanup
+still executes after parent cancellation without another scope, blocking join,
+background session or deadlock. The Android Main looper remains the owner.
+
+Stop invalidates generation and freezes state immediately, but retains its Job until
+actual completion **and** the owner handoff. A new Start cannot overlap retiring
+platform/JNI work. Cleanup checks Job identity, so a stale notification cannot
+clear a successor. Completion before first dispatch is covered without relying on
+the coroutine body/finally. `canStart` also requires active scope and an open owner.
+ViewModel.onCleared calls permanent `close()`, which disables eligibility, stops
+with DESTROYED where still Running and cancels acquisition. Cleanup remains able
+to release the completed child, but neither canceled scope nor closed session can
+restart. No externally registered listener/receiver or native reference exists.
+
+### Focused regressions and fresh verification
+
+Ten new JVM tests extend the existing suite to **79**. Coverage includes exact Stop
+time/repeated Stop, HIDDEN/BACKGROUND time and acquisition counts, Reset/new baseline,
+invalid/regressed/extreme clocks, failure timing without a successful sample,
+worker-thread completion, stale handoff replay and owner destruction. Existing
+deadline, cancellation-before-dispatch, no-overlap and late-native tests remain;
+the in-flight source test now also checks frozen duration after late completion.
+The worker test executes a canceled initial continuation on a real worker and
+asserts that it only queues cleanup; StateFlow collectors observe owner-thread
+publication only. Controlled queues, virtual time and explicit completion replace
+thread sleeps. The real Android control test adds three rapid Start→Stop cycles.
+
+| Fresh check | Result |
+| --- | --- |
+| :app:testDebugUnitTest | 79 PASS; 0 failures/errors/skips; newly executed after correction |
+| :app:lintDebug :app:lintRelease | PASS; 0 errors and the same two existing warnings |
+| :app:assembleDebug :app:assembleRelease :app:bundleRelease :app:assembleDebugAndroidTest :app:build | PASS, including release R8; phase3-corrections-final-validation.log |
+| :app:assembleDebug --offline | PASS; phase3-corrections-offline.log |
+| Full direct instrumentation, API 26 x86_64 | 53 PASS, 40.373 s; phase3-corrections-final-instrumentation-emulator-5554.log |
+| Full direct instrumentation, API 33 ARM64 | 53 PASS, 95.532 s; phase3-corrections-final-instrumentation-RF8R50GVKYL.log |
+| cargo fmt / Clippy, locked all-targets with warnings denied | PASS |
+| Native/Rust/JNI source diff from reviewed SHA | Empty; no protocol/algorithm changes |
+| Fresh release packaging/exports | Four ABIs; mean/processHardware/processMonitoring exports present in each |
+| APK ZIP / ELF alignment | PASS; 64-bit LOAD alignment 16,384; 32-bit unchanged 4,096 |
+| Resource consuming-placeholder/key parity | PASS, 287 keys each; English escaped percent and Persian literal percent preserved |
+| Manifest/toolchain/workflow/resource diffs | Empty; no new permissions/dependencies/persistence/telemetry/identifiers |
+
+Gradle used gradlew.bat with --max-workers=2 --console=plain. Device execution used
+explicit selected-device replacement installs and AndroidJUnitRunner. Both final
+logs contain 53 starts, 53 successful per-test completions and OK (53 tests).
+The Gradle connected installer was not used and its previous anomaly remains
+documented. Native source was unchanged, so the historical 23 Android Rust tests
+per runtime remain historical; no new native test execution is claimed here.
+Likewise normal minified-runtime smoke below is historical, while the minified
+release build and fresh debug JNI/device suite above are new checks. The current
+local JVM result is the Debug suite; no separate release JVM suite is claimed.
+
+The unchanged Linux Rust CI job must validate the exact final pushed SHA before
+integration. Final source review covered start/stop/reset/eligibility/completion,
+visibility, ViewModel disposal, immutable publication, JNI compatibility and privacy;
+no remaining high-confidence material defect was found in these changed paths.
+Graphify was AST-updated, retaining its documented partial Kotlin extraction limits.
+Generated graphs, logs, binaries and temporary scripts are not committed.
+
+### Integration gate and delivery evidence
+
+Local correction/verification gates pass. Normal feature push, exact-final-feature
+CI validation, a non-fast-forward master merge, tree/ancestry checks, merged-master
+smoke and normal master push are explicitly authorized for this closure. The final
+feature SHA (which includes this documentation commit), run IDs/job outcomes, merge
+SHA/parents and remote-master verification are recorded in the integration delivery
+report rather than placing a future/self-referential commit SHA in this commit.
+The previous green run is never substituted for corrected-HEAD CI.
+
+Existing noncritical limits remain: Windows MSVC host linker unavailable; no genuine
+16 KiB-page runtime; limited API/OEM coverage; no full manual TalkBack/foldable audit
+or quantitative battery-drain profiling. No Phase 4 implementation is included.
+
+## Initial Phase 3 delivery record (historical, reviewed b0d4b63)
+
+The original implementation report below is preserved. Its local-only Git/CI state
+and test counts describe that earlier delivery, not the correction/integration run.
+
 ## A. Executive summary
 
 **READY FOR FINAL CODE REVIEW.** Phase 3 adds real, explicitly started foreground

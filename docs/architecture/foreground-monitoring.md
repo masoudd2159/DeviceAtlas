@@ -17,7 +17,11 @@ battery receivers, services, work requests or wakelocks to leave registered.
 Idle → Running requires explicit Start with both gates open and no retiring job.
 Start clears the previous session and its CPU baseline. Duplicate Start does
 nothing. Stop immediately marks Stopped and invalidates a generation token before
-canceling. Reset stops first, then clears history and returns Idle. Running may
+canceling. Stop freezes duration from the session's monotonic start at the actual
+transition time; repeated Stop cannot extend it. Reset clears elapsed time to zero,
+and Start establishes a new baseline. Invalid/regressed clocks preserve already
+published duration; ordered nonnegative subtraction prevents overflow and duration
+is capped at 600,000 ms. No second timer is introduced. Running may
 also become Failed for native/acquisition failures or malformed timing. Three
 consecutive completely unavailable samples stop with a collection failure; valid
 partial samples continue. Voluntary/lifecycle stops are not errors.
@@ -32,8 +36,17 @@ not recompute a previously derived first point. Summaries describe retained hist
 All session transitions run on Main. Acquisition uses the existing qualified IO
 dispatcher; JNI uses the qualified native/Default dispatcher. Cancellation is
 checked after acquisition and JNI and immediately before publication. A retiring
-job stays owned until completion (even if canceled before first dispatch): rapid Stop/Start cannot overlap
-uninterruptible work. A generation token also rejects results after Reset/Stop.
+job stays owned through completion and its Main-dispatched cleanup handoff, even
+when canceled before first dispatch. The completion handler only posts a finite
+Runnable via the injected owner dispatcher (Main.immediate in production); it
+does not inspect or mutate session state on the completing thread. The task uses
+EmptyCoroutineContext, so cleanup still runs after viewModelScope cancellation.
+It checks Job identity before releasing ownership, preventing stale cleanup from
+clearing a successor. No new coroutine scope or blocking join is introduced.
+Rapid Stop/Start cannot overlap uninterruptible work; generation checks reject
+late results. canStart requires no owned Job, active scope, visibility/foreground
+eligibility and an open owner. ViewModel.onCleared permanently closes the session,
+freezes DESTROYED stops and cancels work; it cannot be restarted after disposal.
 
 Rotation/language recreation stops on pause; the surviving Activity ViewModel may
 retain completed history. It never auto-resumes. A new ViewModel/process starts
@@ -86,7 +99,7 @@ score. Unknown OEM fields do not imply hardware failure.
 
 Diagnostics keeps its hardware-integrity section and original [2,4,6] JNI mean.
 Monitoring adds stable Start/Stop/Clear buttons, status, elapsed seconds (updated
-at sample boundaries), last valid wall time, retained count, current metrics and
+at sample boundaries while running, then frozen at actual Stop), last valid wall time, retained count, current metrics and
 RAM/CPU/battery-temperature charts. Start explicitly begins a fresh session.
 
 Charts plot actual monotonic timestamps, dots and straight sampled segments.

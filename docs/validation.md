@@ -1,5 +1,15 @@
 # Validation evidence
 
+## Phase 3 final review corrections — 2026-10-23
+
+The [final correction section](phase-3-report.md#phase-3--final-code-review-corrections-and-integration-readiness)
+supersedes the initial local delivery record below. Fresh Debug JVM execution:
+79 tests, zero failures/errors/skips. Debug/release lint and builds, R8/AAB/full
+build and offline assembly pass. Native source/protocols, manifest, toolchain and
+287 paired resource keys remain unchanged. Exact final device/CI/integration
+evidence is recorded in the correction section and final delivery report. Earlier
+results below retain their historical meaning and are not claimed as reruns.
+
 ## Phase 3 local acceptance — 2026-10-23
 
 See [Phase 3 report](phase-3-report.md) for commands, unsuccessful attempts and limits.

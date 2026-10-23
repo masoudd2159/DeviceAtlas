@@ -1,6 +1,7 @@
 package io.github.masoudd2159.deviceatlas.presentation.monitoring
 
 import androidx.annotation.MainThread
+import io.github.masoudd2159.deviceatlas.foundation.benchmark.DiagnosticsCoordinator
 import io.github.masoudd2159.deviceatlas.foundation.hardware.*
 import io.github.masoudd2159.deviceatlas.foundation.hardware.HardwareValue.*
 import io.github.masoudd2159.deviceatlas.foundation.monitoring.*
@@ -16,6 +17,7 @@ class MonitoringSession(
     private val source: MonitoringSource, private val processor: MonitoringProcessor,
     private val clock: MonotonicClock, private val scope: CoroutineScope,
     private val ownerDispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
+    private val coordinator: DiagnosticsCoordinator = DiagnosticsCoordinator(),
 ) {
     private val mutable = MutableStateFlow(MonitoringState())
     val state = mutable.asStateFlow()
@@ -24,6 +26,11 @@ class MonitoringSession(
     private var generation = 0L
     private var startedAtNanos: Long? = null
     private var closed = false
+    private val stopForBenchmark: () -> Unit = { stop() }
+    private val ownershipChanged: () -> Unit = { publishEligibility() }
+    init {
+        coordinator.observe(ownershipChanged)
+    }
 
     fun setEligibility(visible: Boolean, foreground: Boolean, reason: StopReason = StopReason.BACKGROUND) {
         eligible = !closed && visible && foreground
@@ -33,6 +40,7 @@ class MonitoringSession(
 
     fun start() {
         if (!eligible || job != null || !scope.isActive) return
+        val lease = coordinator.acquireMonitoring(stopForBenchmark) ?: return
         val token = ++generation
         val started = clock.nanos()
         startedAtNanos = started
@@ -99,6 +107,7 @@ class MonitoringSession(
                         finish(MonitoringStatus.Stopped(StopReason.CANCELED), started)
                     }
                     job = null
+                    coordinator.releaseMonitoring(lease)
                     startedAtNanos = null
                     publishEligibility()
                 }
@@ -127,6 +136,7 @@ class MonitoringSession(
         closed = true
         eligible = false
         stop(StopReason.DESTROYED)
+        coordinator.removeObserver(ownershipChanged)
     }
 
     private fun elapsed(started: Long): Long {
@@ -138,7 +148,7 @@ class MonitoringSession(
         else published
     }
     private fun finish(status: MonitoringStatus, started: Long) { mutable.value = mutable.value.copy(status = status, elapsedMillis = elapsed(started)) }
-    private fun canStart() = !closed && eligible && job == null && scope.isActive
+    private fun canStart() = !closed && eligible && job == null && scope.isActive && coordinator.monitoringAvailable()
     private fun publishEligibility() { mutable.value = mutable.value.copy(canStart = canStart()) }
     private class SampleFailure(val reason: UnavailableReason) : RuntimeException()
 }

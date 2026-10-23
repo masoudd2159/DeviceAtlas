@@ -26,6 +26,7 @@ import kotlin.coroutines.coroutineContext
 class AndroidMonitoringSource @Inject constructor(
     @ApplicationContext private val context: Context,
     @HardwareIoDispatcher private val dispatcher: CoroutineDispatcher,
+    private val headroomReader: ThermalHeadroomReader = ThermalHeadroomReader(context),
 ) : MonitoringSource {
     override suspend fun collect(sequence: Long): RawObservation = withContext(dispatcher) {
         coroutineContext.ensureActive()
@@ -74,13 +75,7 @@ class AndroidMonitoringSource @Inject constructor(
                 }
             } ?: Unavailable(UnavailableReason.TEMPORARY)
         }
-        val headroom = safely {
-            if (Build.VERSION.SDK_INT < 30) Unavailable(UnavailableReason.UNSUPPORTED)
-            else context.getSystemService(PowerManager::class.java)?.let {
-                val value = it.getThermalHeadroom(0).toDouble()
-                if (value.isNaN()) Unavailable(UnavailableReason.TEMPORARY) else Available(value)
-            } ?: Unavailable(UnavailableReason.TEMPORARY)
-        }
+        val headroom = headroomReader.read()
         val charging = extra(BatteryManager.EXTRA_STATUS).transform { value ->
             when (value.toInt()) {
                 BatteryManager.BATTERY_STATUS_CHARGING -> Available(ChargingStatus.CHARGING)

@@ -76,3 +76,14 @@ AndroidMonitoringSource acquires public observations on IO; RustMonitoringProces
 validates/derives/summarizes them on Default through a separate versioned JNI ABI.
 See [foreground monitoring](foreground-monitoring.md) and
 [native monitoring processing](native-monitoring-processing.md).
+
+Phase 4 adds an independent Activity-owned `BenchmarkViewModel` and foreground
+`BenchmarkSession`, selected within Diagnostics. Typed contracts live under
+`foundation/benchmark`, platform preflight under `data/benchmark`, native transport
+in `RustBenchmarkProcessor`, and bounded algorithms/statistics in
+`native/src/benchmark.rs`. A process-local `DiagnosticsCoordinator` guards leases
+across both session types and retiring owners; it has no worker or scope.
+`ThermalHeadroomReader` shares one ten-second cache between diagnostic collectors.
+See [safe benchmarking](safe-benchmarking.md),
+[native benchmark processing](native-benchmark-processing.md), and
+[Phase 4 evidence](../phase-4-report.md).

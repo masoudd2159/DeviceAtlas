@@ -1,5 +1,8 @@
 # Validation evidence
 
+Phase 4 commands, positive test counts, release probe procedure, native packaging,
+and outstanding coverage are recorded in [the Phase 4 report](phase-4-report.md).
+
 ## Phase 3 final review corrections — 2026-10-23
 
 The [final correction section](phase-3-report.md#phase-3--final-code-review-corrections-and-integration-readiness)

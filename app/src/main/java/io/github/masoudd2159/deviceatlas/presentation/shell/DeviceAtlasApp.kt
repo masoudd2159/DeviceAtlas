@@ -24,6 +24,9 @@ import io.github.masoudd2159.deviceatlas.presentation.home.HomeScreen
 import io.github.masoudd2159.deviceatlas.presentation.home.HomeViewModel
 import io.github.masoudd2159.deviceatlas.presentation.navigation.*
 import io.github.masoudd2159.deviceatlas.presentation.settings.SettingsUiState
+import io.github.masoudd2159.deviceatlas.presentation.monitoring.*
+import io.github.masoudd2159.deviceatlas.foundation.monitoring.MonitoringState
+import io.github.masoudd2159.deviceatlas.foundation.monitoring.StopReason
 
 @Composable
 fun DeviceAtlasApp(
@@ -35,7 +38,10 @@ fun DeviceAtlasApp(
     navigation: AppNavigationState = rememberAppNavigationState(),
     hardware: HardwareUiState = HardwareUiState(),
     refreshHardware: () -> Unit = {},
+    monitoring: MonitoringSession? = null,
 ) {
+    if (monitoring != null) MonitoringVisibility(monitoring, navigation.current == Destination.DIAGNOSTICS)
+    val monitoringState = monitoring?.state?.collectAsStateWithLifecycle()?.value ?: MonitoringState()
     val informationPage = navigation.current in listOf(Destination.OVERVIEW, Destination.DEVICE, Destination.SENSORS, Destination.DIAGNOSTICS)
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { if (informationPage) refreshHardware() }
     LaunchedEffect(informationPage) { if (informationPage && hardware.snapshot == null) refreshHardware() }
@@ -43,7 +49,10 @@ fun DeviceAtlasApp(
         Destination.topLevel.forEach { destination ->
             item(
                 selected = navigation.selected == destination,
-                onClick = { navigation.navigate(destination) },
+                onClick = {
+                    if (destination != Destination.DIAGNOSTICS) monitoring?.stop(StopReason.HIDDEN)
+                    navigation.navigate(destination)
+                },
                 icon = { Icon(painterResource(destination.icon), contentDescription = null) },
                 label = { Text(stringResource(destination.title)) },
                 modifier = Modifier.testTag("nav_${destination.name}"),
@@ -53,7 +62,7 @@ fun DeviceAtlasApp(
         Scaffold(topBar = {
             AtlasTopBar(
                 title = stringResource(if (navigation.current == Destination.OVERVIEW) R.string.app_name else navigation.current.title),
-                onBack = if (navigation.current !in Destination.topLevel) ({ navigation.back() }) else null,
+                onBack = if (navigation.current !in Destination.topLevel) ({ monitoring?.stop(StopReason.HIDDEN); navigation.back() }) else null,
             )
         }) { padding ->
             NavDisplay(
@@ -67,6 +76,7 @@ fun DeviceAtlasApp(
                             Destination.DIAGNOSTICS -> {
                                 val model: HomeViewModel = hiltViewModel()
                                 ResponsiveContent {
+                                    MonitoringPanel(monitoringState, { monitoring?.start() }, { monitoring?.stop() }, { monitoring?.reset() })
                                     Text(stringResource(R.string.diagnostics_description))
                                     HardwareRefresh(hardware, refreshHardware)
                                     HardwareIntegrity(hardware)
@@ -80,7 +90,7 @@ fun DeviceAtlasApp(
                         }
                     }
                 }),
-                onBack = navigation::back,
+                onBack = { monitoring?.stop(StopReason.HIDDEN); navigation.back() },
             )
         }
     }

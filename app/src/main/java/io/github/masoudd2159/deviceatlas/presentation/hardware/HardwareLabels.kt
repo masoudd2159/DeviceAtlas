@@ -67,6 +67,8 @@ internal fun reasonLabel(value: UnavailableReason): Int = when (value) {
     UnavailableReason.INVALID_RESPONSE -> R.string.hw_reason_invalid_response
     UnavailableReason.NATIVE_UNAVAILABLE -> R.string.hw_reason_native_unavailable
     UnavailableReason.NATIVE_FAILED -> R.string.hw_reason_native_failed
+    UnavailableReason.BASELINE -> R.string.monitor_baseline
+    UnavailableReason.INSUFFICIENT -> R.string.monitor_insufficient
 }
 
 internal fun categoryLabel(value: HardwareCategory): Int = when (value) {

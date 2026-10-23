@@ -5,6 +5,7 @@ import java.util.Collections
 enum class UnavailableReason {
     UNSUPPORTED, NOT_REPORTED, NOT_PRESENT, TEMPORARY, PERMISSION_RESTRICTED,
     COLLECTION_FAILED, INVALID_RESPONSE, NATIVE_UNAVAILABLE, NATIVE_FAILED,
+    BASELINE, INSUFFICIENT,
 }
 
 sealed interface HardwareValue<out T> {

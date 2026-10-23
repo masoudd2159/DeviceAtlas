@@ -1,6 +1,15 @@
 # DeviceAtlas
 
 DeviceAtlas is an offline-first Android device-information application.
+**Phase 5 adds explicitly started interactive diagnostics** inside Diagnostics:
+eight static display patterns, bounded touch coverage and simultaneous contacts,
+selected foreground sensor observation with Rust summaries, and brief requested
+vibration with manual feedback. Results stay in memory and never certify hardware
+health. The only added permission is normal-protection `VIBRATE`.
+See the [Phase 5 engineering report](docs/phase-5-report.md),
+[interactive ownership and safety](docs/architecture/interactive-diagnostics.md),
+and [sensor JNI protocol](docs/architecture/native-sensor-analysis.md).
+
 **Phase 2 implements real, read-only device intelligence**: public Android API
 snapshots for Device/OS, CPU/ABI, RAM, app-data filesystem, battery, default display,
 graphics capabilities and accessible sensor inventory. Rust validates numerical
@@ -9,8 +18,8 @@ The adaptive Material 3 shell, typed Navigation 3, English/Persian runtime local
 selection and persistent System/Light/Dark themes remain from Phase 1.
 The verified Hilt → ViewModel → Rust/JNI mean using test inputs `[2.0, 4.0, 6.0]`
 remains available under Diagnostics alongside information availability. Unsupported
-values are explicit; no hardware values are invented, identifiers collected,
-sensor streams sampled, or background monitoring installed. Snapshots stay in memory.
+values are explicit; no hardware values are invented or identifiers collected.
+Inventory snapshots do not start sensor streams or background monitoring and stay in memory.
 
 See the [Phase 2 engineering report](docs/phase-2-report.md),
 [field/source compatibility matrix](docs/architecture/hardware-collection.md), and

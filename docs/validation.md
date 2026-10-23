@@ -187,3 +187,27 @@ No system or user PATH was changed, and no machine-specific path was committed.
 `gradlew.bat :app:assembleDebug --max-workers=2 --console=plain` then passed with
 the original shell PATH, rebuilding Rust for all four ABIs and packaging the APK.
 Evidence: `build/foundation-ide-cargo.log`.
+
+## Phase 5 local verification — 2026-10-23
+
+The historical foundation results above remain phase-specific. Current Phase 5
+evidence is recorded in [the Phase 5 report](phase-5-report.md).
+
+| Check | Phase 5 result |
+| --- | --- |
+| JVM | PASS: 132 tests, zero failures/errors/skips |
+| Instrumentation | PASS: 65 tests on API 26 x86_64 and 65 on API 33 ARM64 |
+| Rust | PASS: 34 debug and 34 optimized tests on each Android runtime |
+| Windows host Rust execution | BLOCKED: missing MSVC `link.exe` |
+| Debug/release/AAB, R8, lint, offline debug | PASS; two existing lint warnings |
+| Minified release native probe | PASS on both runtimes; sensor and legacy JNI |
+| Packaging/exports | PASS: four ABIs, five retained JNI exports |
+| Static alignment | PASS: ZIP alignment and 16 KiB LOAD alignment on both 64-bit ABIs; existing 32-bit LOAD alignment is 4 KiB |
+| 16 KiB-page device execution | NOT RUN |
+| Human display judgment, felt vibration, manual TalkBack | NOT RUN |
+
+Instrumentation uses explicit `adb install -r` for the app and test APK, followed
+by the configured AndroidJUnitRunner. Positive `OK (65 tests)` results are
+required; a Gradle exit code alone is insufficient. Automated haptic tests are
+fakes, and no physical vibration is requested by the suite. A temporary locally
+debug-signed copy validates minified release without changing release signing.

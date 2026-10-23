@@ -1,5 +1,11 @@
 # Safe foreground benchmarking
 
+Phase 5 extends the same coordinator with an interactive lease. Benchmark Start
+requests interactive Stop and waits for both monitoring and interactive
+retirement; interactive Start similarly waits for benchmark retirement. See
+[interactive ownership](interactive-diagnostics.md). The Phase 4 benchmark
+workloads, limits, and native protocol remain unchanged.
+
 Phase 4 is an optional application microbenchmark capability inside Diagnostics.
 The Live Monitoring / Quick Performance Check selector preserves the five
 top-level destinations. Selecting a panel never starts work. All results are

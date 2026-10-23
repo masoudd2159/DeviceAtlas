@@ -46,3 +46,10 @@ count over at most 120 retained samples. Kotlin owns acquisition, monotonic
 scheduling, explicit foreground/visibility gates, status categories and rendering.
 See [monitoring protocol](native-monitoring-processing.md) for wire shapes and
 [foreground ownership](foreground-monitoring.md) for cancellation and lifetime.
+
+Phase 5 adds [interactive diagnostics](interactive-diagnostics.md). Compose owns
+static patterns and touch coordinates; Android owns selected foreground sensor
+listeners and short, explicitly requested vibration. Rust owns bounded scalar
+statistics and overflow-safe vector magnitudes through an independent
+[sensor protocol](native-sensor-analysis.md). No rendering or touch coordinates
+cross JNI. The shared coordinator includes retiring interactive work.

@@ -38,3 +38,11 @@ native algorithms must introduce an explicit cooperative cancellation contract.
 The existing crate now contains hardware.rs for actual capacity, battery, display
 and numeric validation rules, without artificial forwarding modules or dependencies.
 All four ABI targets, release keep rules and original error regressions remain.
+
+Phase 3 extends this boundary with `monitoring.rs` and a separate bounded
+`processMonitoring` protocol. Rust owns process CPU deltas and core-equivalent
+percent, numeric validation, unit conversion, and missing-aware min/max/mean/latest/
+count over at most 120 retained samples. Kotlin owns acquisition, monotonic
+scheduling, explicit foreground/visibility gates, status categories and rendering.
+See [monitoring protocol](native-monitoring-processing.md) for wire shapes and
+[foreground ownership](foreground-monitoring.md) for cancellation and lifetime.

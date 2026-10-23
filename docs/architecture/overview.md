@@ -67,3 +67,12 @@ See [Rust boundaries](rust-first-boundaries.md), [navigation](navigation.md),
 [design system](design-system.md), [localization](localization.md) and
 [decisions](decisions.md), [hardware sources/models](hardware-collection.md), and
 [native hardware protocol](native-hardware-processing.md).
+
+Phase 3 adds an independent Activity-owned `MonitoringViewModel` and a bounded
+`MonitoringSession`. It never turns HardwareViewModel refresh into polling.
+The shell combines Diagnostics visibility with Activity RESUMED outside retained
+navigation entries, stopping on either gate's loss without automatic resume.
+AndroidMonitoringSource acquires public observations on IO; RustMonitoringProcessor
+validates/derives/summarizes them on Default through a separate versioned JNI ABI.
+See [foreground monitoring](foreground-monitoring.md) and
+[native monitoring processing](native-monitoring-processing.md).

@@ -148,6 +148,11 @@ required.
 
 ## References verified during implementation
 
+Phase 3 monitoring is a separate active-session collector. The Phase 2 hardware
+snapshot and sensor revision semantics above remain unchanged. See
+[foreground monitoring](foreground-monitoring.md) for its API/units matrix,
+availability handling and lifetime; it does not continuously refresh this snapshot.
+
 - [Build reference](https://developer.android.com/reference/android/os/Build)
 - [MemoryInfo reference](https://developer.android.com/reference/android/app/ActivityManager.MemoryInfo)
 - [BatteryManager reference](https://developer.android.com/reference/android/os/BatteryManager)

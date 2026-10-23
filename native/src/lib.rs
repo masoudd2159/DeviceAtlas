@@ -1,6 +1,7 @@
 //! Pure mathematics and a small, synchronous JNI boundary.
 pub mod benchmark;
 mod bridge;
+pub mod diagnostics;
 pub mod hardware;
 pub mod monitoring;
 

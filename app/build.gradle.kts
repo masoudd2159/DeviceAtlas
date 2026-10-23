@@ -24,7 +24,10 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Framework-only probe can validate a minified target without relying
+        // on unminified Kotlin class names in the debug AndroidX test runner.
+        testInstrumentationRunner = providers.gradleProperty("deviceAtlasTestRunner")
+            .orElse("androidx.test.runner.AndroidJUnitRunner").get()
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86") }
     }
     buildTypes {

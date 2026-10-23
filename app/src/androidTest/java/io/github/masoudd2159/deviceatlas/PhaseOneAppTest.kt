@@ -38,7 +38,7 @@ class PhaseOneAppTest {
             "DIAGNOSTICS" to R.string.diagnostics_description).forEach { (destination, description) ->
             compose.onNodeWithTag("nav_$destination").performClick()
             waitForPage(destination)
-            compose.onNodeWithText(text(description)).assertIsDisplayed()
+            compose.onNodeWithText(text(description)).performScrollTo().assertIsDisplayed()
         }
         compose.onNodeWithTag("nav_SETTINGS").performClick()
         waitForPage("SETTINGS")

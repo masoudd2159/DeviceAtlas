@@ -1,12 +1,101 @@
 //! JNI status protocol: 0 success, 1 empty, 2 non-finite, 3 invalid buffer,
 //! 4 JNI/allocation failure, 5 caught Rust panic. Output is written only on success.
 use crate::{MeanError, mean};
+use jni_sys::jlongArray;
 use jni_sys::{JNIEnv, jdoubleArray, jint, jobject};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 const INVALID_BUFFER: jint = 3;
 const NATIVE_FAILURE: jint = 4;
 const PANIC: jint = 5;
+
+fn contain_panic(action: impl FnOnce() -> jint) -> jint {
+    catch_unwind(AssertUnwindSafe(action)).unwrap_or(PANIC)
+}
+
+/// Versioned hardware ABI. long[4], double[1] -> double[5]. Statuses 6 invalid
+/// numeric data, 7 unsupported operation, 8 protocol version; 3/4/5 as for mean.
+/// # Safety
+/// The JVM supplies valid array handles and an attached thread's environment.
+#[unsafe(no_mangle)]
+pub unsafe extern "system" fn Java_io_github_masoudd2159_deviceatlas_data_nativecore_NativeBridge_processHardware(
+    env: *mut JNIEnv,
+    _receiver: jobject,
+    input: jlongArray,
+    real: jdoubleArray,
+    output: jdoubleArray,
+) -> jint {
+    contain_panic(|| unsafe { invoke_hardware(env, input, real, output) })
+}
+
+unsafe fn invoke_hardware(
+    env: *mut JNIEnv,
+    input: jlongArray,
+    real: jdoubleArray,
+    output: jdoubleArray,
+) -> jint {
+    if env.is_null() || input.is_null() || real.is_null() || output.is_null() {
+        return INVALID_BUFFER;
+    }
+    let table = unsafe { *env };
+    if table.is_null() {
+        return NATIVE_FAILURE;
+    }
+    let table = unsafe { &*table };
+    let (
+        Some(length),
+        Some(read_long),
+        Some(read_double),
+        Some(write),
+        Some(exception),
+        Some(clear),
+    ) = (
+        table.GetArrayLength,
+        table.GetLongArrayRegion,
+        table.GetDoubleArrayRegion,
+        table.SetDoubleArrayRegion,
+        table.ExceptionCheck,
+        table.ExceptionClear,
+    )
+    else {
+        return NATIVE_FAILURE;
+    };
+    let failed = || unsafe {
+        if exception(env) != 0 {
+            clear(env);
+            true
+        } else {
+            false
+        }
+    };
+    for (array, expected) in [(input, 4), (real, 1), (output, 5)] {
+        let size = unsafe { length(env, array) };
+        if failed() {
+            return NATIVE_FAILURE;
+        }
+        if size != expected {
+            return INVALID_BUFFER;
+        }
+    }
+    let mut values = [0_i64; 4];
+    let mut floating = [0.0_f64; 1];
+    unsafe { read_long(env, input, 0, 4, values.as_mut_ptr()) };
+    if failed() {
+        return NATIVE_FAILURE;
+    }
+    unsafe { read_double(env, real, 0, 1, floating.as_mut_ptr()) };
+    if failed() {
+        return NATIVE_FAILURE;
+    }
+    let result = match crate::hardware::process(values, floating[0]) {
+        Ok(value) => value,
+        Err(crate::hardware::MetricError::Invalid) => return 6,
+        Err(crate::hardware::MetricError::Operation) => return 7,
+        Err(crate::hardware::MetricError::Version) => return 8,
+    };
+    unsafe { write(env, output, 0, 5, result.as_ptr()) };
+    if failed() { NATIVE_FAILURE } else { 0 }
+}
 
 /// # Safety
 /// Called by the JVM on its attached thread. Non-null JNI handles and the
@@ -20,7 +109,7 @@ pub unsafe extern "system" fn Java_io_github_masoudd2159_deviceatlas_data_native
 ) -> jint {
     // Both debug and release use unwinding, so Rust panics are contained here.
     // Caller memory is accessed only through checked JNI region operations.
-    catch_unwind(AssertUnwindSafe(|| unsafe { invoke(env, input, output) })).unwrap_or(PANIC)
+    contain_panic(|| unsafe { invoke(env, input, output) })
 }
 
 unsafe fn invoke(env: *mut JNIEnv, input: jdoubleArray, output: jdoubleArray) -> jint {
@@ -66,7 +155,8 @@ unsafe fn invoke(env: *mut JNIEnv, input: jdoubleArray, output: jdoubleArray) ->
     if count == 0 {
         return 1;
     }
-    if count < 0 {
+    // Bound legacy mean allocation too (8 MiB maximum); status 3 remains invalid buffer.
+    if !(0..=1_048_576).contains(&count) {
         return INVALID_BUFFER;
     }
 
@@ -88,4 +178,22 @@ unsafe fn invoke(env: *mut JNIEnv, input: jdoubleArray, output: jdoubleArray) ->
     // SAFETY: output has exactly one element, and value is live for this copy.
     unsafe { write(env, output, 0, 1, &value) };
     if failed() { NATIVE_FAILURE } else { 0 }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn panic_containment_and_null_environment() {
+        assert_eq!(contain_panic(|| panic!("injected boundary panic")), PANIC);
+        assert_eq!(contain_panic(|| 0), 0);
+        // A null environment must be rejected before dereferencing any handles.
+        let env = std::ptr::null_mut();
+        let null = std::ptr::null_mut();
+        assert_eq!(
+            unsafe { invoke_hardware(env, null, null, null) },
+            INVALID_BUFFER
+        );
+        assert_eq!(unsafe { invoke(env, null, null) }, INVALID_BUFFER);
+    }
 }

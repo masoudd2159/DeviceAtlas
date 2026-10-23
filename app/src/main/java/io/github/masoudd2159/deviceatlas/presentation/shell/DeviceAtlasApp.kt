@@ -4,6 +4,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import io.github.masoudd2159.deviceatlas.presentation.hardware.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -29,7 +33,12 @@ fun DeviceAtlasApp(
     selectTheme: (ThemePreference) -> Unit,
     retryPreferences: () -> Unit,
     navigation: AppNavigationState = rememberAppNavigationState(),
+    hardware: HardwareUiState = HardwareUiState(),
+    refreshHardware: () -> Unit = {},
 ) {
+    val informationPage = navigation.current in listOf(Destination.OVERVIEW, Destination.DEVICE, Destination.SENSORS, Destination.DIAGNOSTICS)
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { if (informationPage) refreshHardware() }
+    LaunchedEffect(informationPage) { if (informationPage && hardware.snapshot == null) refreshHardware() }
     NavigationSuiteScaffold(navigationSuiteItems = {
         Destination.topLevel.forEach { destination ->
             item(
@@ -52,13 +61,15 @@ fun DeviceAtlasApp(
                 entries = navigation.decoratedEntries(entryProvider {
                     entry<Destination> { destination ->
                         when (destination) {
-                            Destination.OVERVIEW -> OverviewScreen(navigation::navigate)
-                            Destination.DEVICE -> PlannedScreen(R.string.device_description)
-                            Destination.SENSORS -> PlannedScreen(R.string.sensors_description)
+                            Destination.OVERVIEW -> OverviewScreen(navigation::navigate, hardware, refreshHardware)
+                            Destination.DEVICE -> HardwareDeviceScreen(hardware, refreshHardware)
+                            Destination.SENSORS -> HardwareSensorsScreen(hardware, refreshHardware)
                             Destination.DIAGNOSTICS -> {
                                 val model: HomeViewModel = hiltViewModel()
                                 ResponsiveContent {
-                                    AvailabilityMessage(stringResource(R.string.diagnostics_description))
+                                    Text(stringResource(R.string.diagnostics_description))
+                                    HardwareRefresh(hardware, refreshHardware)
+                                    HardwareIntegrity(hardware)
                                     HomeScreen(model.uiState.collectAsStateWithLifecycle().value)
                                 }
                             }

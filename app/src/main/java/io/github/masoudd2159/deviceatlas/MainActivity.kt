@@ -21,10 +21,12 @@ import io.github.masoudd2159.deviceatlas.foundation.AppLanguage
 import io.github.masoudd2159.deviceatlas.presentation.settings.SettingsViewModel
 import io.github.masoudd2159.deviceatlas.presentation.shell.DeviceAtlasApp
 import io.github.masoudd2159.deviceatlas.presentation.theme.DeviceAtlasTheme
+import io.github.masoudd2159.deviceatlas.presentation.hardware.HardwareViewModel
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
     private val viewModel: SettingsViewModel by viewModels()
+    private val hardwareModel: HardwareViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,6 +50,8 @@ class MainActivity : AppCompatActivity() {
                         selectLanguage = { AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(it.languageTag)) },
                         selectTheme = viewModel::selectTheme,
                         retryPreferences = viewModel::retry,
+                        hardware = hardwareModel.uiState.collectAsStateWithLifecycle().value,
+                        refreshHardware = hardwareModel::refresh,
                     )
                 } else {
                     Surface(color = MaterialTheme.colorScheme.background) { Text(stringResource(R.string.app_starting)) }

@@ -14,9 +14,10 @@ import io.github.masoudd2159.deviceatlas.presentation.components.*
 import io.github.masoudd2159.deviceatlas.presentation.navigation.Destination
 import io.github.masoudd2159.deviceatlas.presentation.settings.SettingsUiState
 import io.github.masoudd2159.deviceatlas.presentation.theme.*
+import io.github.masoudd2159.deviceatlas.presentation.hardware.*
 
 @Composable
-fun OverviewScreen(navigate: (Destination) -> Unit) {
+fun OverviewScreen(navigate: (Destination) -> Unit, hardware: HardwareUiState = HardwareUiState(), refresh: () -> Unit = {}) {
     ResponsiveContent {
         Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.primaryContainer) {
             Column(Modifier.padding(FoundationSpacing.screen),
@@ -25,6 +26,8 @@ fun OverviewScreen(navigate: (Destination) -> Unit) {
                 Text(stringResource(R.string.overview_description), style = MaterialTheme.typography.bodyLarge)
             }
         }
+        HardwareRefresh(hardware, refresh)
+        HardwareSummary(hardware)
         SectionHeader(stringResource(R.string.explore))
         ActionRow(stringResource(R.string.device), stringResource(R.string.device_summary), { navigate(Destination.DEVICE) })
         ActionRow(stringResource(R.string.sensors), stringResource(R.string.sensors_summary), { navigate(Destination.SENSORS) })
@@ -116,7 +119,7 @@ fun themeLabel(theme: ThemePreference): String = stringResource(when (theme) {
 @Preview(name = "Overview Persian", locale = "fa", showBackground = true)
 @Preview(name = "Overview tablet", widthDp = 1000, heightDp = 700, showBackground = true)
 @Composable
-private fun OverviewPreview() { DeviceAtlasTheme(dynamicColor = false) { OverviewScreen {} } }
+private fun OverviewPreview() { DeviceAtlasTheme(dynamicColor = false) { OverviewScreen(navigate = {}) } }
 
 @Preview(name = "Settings Persian large font", locale = "fa", fontScale = 2f, showBackground = true)
 @Composable

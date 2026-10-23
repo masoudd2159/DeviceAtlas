@@ -1,6 +1,6 @@
 # Localization
 
-All visible Phase 1 text comes from `res/values/strings.xml` and
+All visible application text comes from `res/values/strings.xml` and
 `res/values-fa/strings.xml`. Technical constants such as the app version are not
 translations. `LocalizationTest` compares all keys, duplicates, nonempty values,
 format arguments and Persian kaf/yeh forms. Run with `:app:testDebugUnitTest`.
@@ -45,3 +45,12 @@ locale to `locales_config.xml` and `AppLanguage`/label mapping, extend completen
 and runtime direction/switching tests, and verify native names/mixed text. Never
 put translations in Rust. Update tests rather than relying on fallback to conceal
 missing supported-language resources.
+
+Phase 2 adds exhaustive resource mappings for hardware sections, field labels,
+unavailability reasons, battery categories, sensor types/units and refresh states.
+Both languages contain 226 strings. `NumberFormat`/locale date formatting own
+display; small nonzero measurements use localized scientific notation to avoid
+rounding sensor resolution to an apparent zero. Rust owns numeric normalization,
+without locale strings. Product names and ABI/version identifiers use the existing
+technical LTR value style. HardwareRenderingTest exercises Persian at 200% fonts;
+existing locale/theme/navigation tests remain intact.

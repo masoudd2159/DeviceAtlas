@@ -13,6 +13,109 @@ fn contain_panic(action: impl FnOnce() -> jint) -> jint {
     catch_unwind(AssertUnwindSafe(action)).unwrap_or(PANIC)
 }
 
+/// Monitoring v1. Shapes are validated from a three-long header before copying.
+/// # Safety
+/// JVM supplies live array handles and this thread's JNI environment.
+#[unsafe(no_mangle)]
+pub unsafe extern "system" fn Java_io_github_masoudd2159_deviceatlas_data_nativecore_NativeBridge_processMonitoring(
+    env: *mut JNIEnv,
+    _receiver: jobject,
+    input: jlongArray,
+    real: jdoubleArray,
+    output: jdoubleArray,
+) -> jint {
+    contain_panic(|| unsafe { invoke_monitoring(env, input, real, output) })
+}
+
+unsafe fn invoke_monitoring(
+    env: *mut JNIEnv,
+    input: jlongArray,
+    real: jdoubleArray,
+    output: jdoubleArray,
+) -> jint {
+    if env.is_null() || input.is_null() || real.is_null() || output.is_null() {
+        return INVALID_BUFFER;
+    }
+    let table = unsafe { *env };
+    if table.is_null() {
+        return NATIVE_FAILURE;
+    }
+    let table = unsafe { &*table };
+    let (
+        Some(length),
+        Some(read_long),
+        Some(read_double),
+        Some(write),
+        Some(exception),
+        Some(clear),
+    ) = (
+        table.GetArrayLength,
+        table.GetLongArrayRegion,
+        table.GetDoubleArrayRegion,
+        table.SetDoubleArrayRegion,
+        table.ExceptionCheck,
+        table.ExceptionClear,
+    )
+    else {
+        return NATIVE_FAILURE;
+    };
+    let failed = || unsafe {
+        if exception(env) != 0 {
+            clear(env);
+            true
+        } else {
+            false
+        }
+    };
+    let size = unsafe { length(env, input) };
+    if failed() {
+        return NATIVE_FAILURE;
+    }
+    if size < 3 {
+        return INVALID_BUFFER;
+    }
+    let mut header = [0_i64; 3];
+    unsafe { read_long(env, input, 0, 3, header.as_mut_ptr()) };
+    if failed() {
+        return NATIVE_FAILURE;
+    }
+    let (longs, doubles, outputs) = match crate::monitoring::shape(header) {
+        Ok(shape) => shape,
+        Err(status) => return status,
+    };
+    for (array, expected) in [(input, longs), (real, doubles), (output, outputs)] {
+        let actual = unsafe { length(env, array) };
+        if failed() {
+            return NATIVE_FAILURE;
+        }
+        if actual != expected as i32 {
+            return INVALID_BUFFER;
+        }
+    }
+    // Fixed maximum buffers; sizes/counts validated before reading any payload.
+    let mut integers = [0_i64; 123];
+    let mut floating = [0.0_f64; 1200];
+    unsafe { read_long(env, input, 0, longs as i32, integers.as_mut_ptr()) };
+    if failed() {
+        return NATIVE_FAILURE;
+    }
+    if doubles > 0 {
+        unsafe { read_double(env, real, 0, doubles as i32, floating.as_mut_ptr()) };
+        if failed() {
+            return NATIVE_FAILURE;
+        }
+    }
+    let result = match crate::monitoring::process(&integers[..longs], &floating[..doubles]) {
+        Ok(result) => result,
+        Err(status) => return status,
+    };
+    if result.len() != outputs || result.iter().any(|v| !v.is_finite()) {
+        return NATIVE_FAILURE;
+    }
+    unsafe { write(env, output, 0, outputs as i32, result.as_ptr()) };
+    if failed() { NATIVE_FAILURE } else { 0 }
+}
+
 /// Versioned hardware ABI. long[4], double[1] -> double[5]. Statuses 6 invalid
 /// numeric data, 7 unsupported operation, 8 protocol version; 3/4/5 as for mean.
 /// # Safety
@@ -195,5 +298,9 @@ mod tests {
             INVALID_BUFFER
         );
         assert_eq!(unsafe { invoke(env, null, null) }, INVALID_BUFFER);
+        assert_eq!(
+            unsafe { invoke_monitoring(env, null, null, null) },
+            INVALID_BUFFER
+        );
     }
 }
